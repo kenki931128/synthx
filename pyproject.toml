@@ -1,0 +1,54 @@
+[tool.poetry]
+name = "synthx"
+version = "0.1.0"
+description = "A Python Library for Advanced Synthetic Control Analysis"
+authors = ["kenki931128 <kenki.nkmr@gmail.com>"]
+license = "MIT License"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+numpy = "^1.26.4"
+pandas = "^2.2.1"
+polars = "^0.20.16"
+matplotlib = "^3.8.3"
+
+[tool.poetry.group.dev.dependencies]
+isort = {extras = ["pyproject"], version = "^5.13.2"}
+black = "^24.3.0"
+pylint = "^3.1.0"
+mypy = "^1.9.0"
+bandit = "^1.7.8"
+pytest = "^8.1.1"
+pytest-cov = "^4.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.isort]
+include_trailing_comma = true
+line_length = 100
+lines_after_imports = 2
+multi_line_output = 3
+
+[tool.black]
+line-length = 100
+skip-string-normalization = true
+target-version = ['py39']
+
+[tool.pylint.format]
+max-line-length = 100
+[tool.pylint.messages_control]
+disable = ["F0010"]
+
+[tool.bandit]
+targets = ["synthx", "tests"]
+exclude_dirs = [".venv"]
+[tool.bandit.assert_used]
+skips = ["*/test_*.py"]
+
+[[tool.mypy.overrides]]
+module = []
+ignore_missing_imports = true
