@@ -44,13 +44,13 @@ def sample(
         ╞══════╪══════╪═════════╪════════════╪════════════╪════════════╡
         │ 1    ┆ 1    ┆ 2.340096┆ 0.950088   ┆ 0.134298   ┆ 0.794324   │
         ├╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┤
-        │ 1    ┆ 2    ┆ 2.370135┆ 0.648103   ┆ 0.854435   ┆ 0.985934   │
+        │ 1    ┆ 2    ┆ 2.370135┆ 0.950088   ┆ 0.134298   ┆ 0.794324   │
         ├╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┤
-        │ 1    ┆ 3    ┆ 2.776434┆ 0.480122   ┆ 0.747343   ┆ 0.489234   │
+        │ 1    ┆ 3    ┆ 2.776434┆ 0.950088   ┆ 0.134298   ┆ 0.794324   │
         ├╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┤
-        │ 1    ┆ 4    ┆ 3.140631┆ 0.745610   ┆ 0.984357   ┆ 0.498200   │
+        │ 1    ┆ 4    ┆ 3.140631┆ 0.950088   ┆ 0.134298   ┆ 0.794324   │
         ├╌╌╌╌╌╌┼╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┤
-        │ 1    ┆ 5    ┆ 3.410797┆ 0.897789   ┆ 0.217445   ┆ 0.145328   │
+        │ 1    ┆ 5    ┆ 3.410797┆ 0.950088   ┆ 0.134298   ┆ 0.794324   │
         └──────┴──────┴─────────┴────────────┴────────────┴────────────┘
     """
     np.random.seed(seed)
@@ -66,10 +66,10 @@ def sample(
         raise ValueError('n_observed_covariates must be a non-negative integer.')
     if n_unobserved_covariates < 0:
         raise ValueError('n_unobserved_covariates must be a non-negative integer.')
-    if not all(0 <= unit < n_units for unit in intervention_units):
-        raise ValueError('All elements in intervention_units must be between 0 and n_units - 1.')
-    if not 0 <= intervention_time < n_time:
-        raise ValueError('intervention_time must be between 0 and n_time - 1.')
+    if not all(1 <= unit <= n_units for unit in intervention_units):
+        raise ValueError('all elements in intervention_units must be between 1 and n_units.')
+    if not 1 <= intervention_time <= n_time:
+        raise ValueError('intervention_time must be between 1 and n_time.')
 
     # base value of units and time
     # actually units_base is not required here as it's also included in covariates.
@@ -114,7 +114,7 @@ def sample(
             )
 
             # Add intervention effect if intervented.
-            if (i in intervention_units) and (t >= intervention_time):
+            if ((i + 1) in intervention_units) and ((t + 1) >= intervention_time):
                 y += intervention_effect
 
             # create data point
