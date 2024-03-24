@@ -1,0 +1,51 @@
+name: python code sanity check - lint
+
+on:
+  pull_request:
+    paths:
+      - '**'
+
+jobs:
+  check:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: [3.9, 3.10, 3.11, 3.12]
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Use poetry
+      uses: abatilo/actions-poetry@v3
+
+    - name: Install dependencies
+      run: poetry install
+
+    - name: Analysing the code with isort
+      run: poetry run isort . --check-only --diff
+
+    - name: Analysing the code with black
+      run: poetry run black . --check --diff
+
+    - name: Analysing the code with pylint
+      run: poetry run pylint .
+
+    - name: Analysing the code with bandit
+      run: poetry run bandit -c pyproject.toml -r .
+
+    - name: Analysing the code with mypy
+      run: poetry run mypy --explicit-package-bases --disallow-untyped-defs .
+
+    - name: Build up wheel
+      run: poetry build
+
+    - name: Analysing the wheel
+      run: |
+        pip install check-wheel-contents
+        check-wheel-contents dist
