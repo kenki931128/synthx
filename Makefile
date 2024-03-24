@@ -11,3 +11,7 @@ lint:  ## lint python code
 .PHONY: test
 test:  ## test python code
 	@poetry run pytest -s --cov --cov-branch .
+
+.PHONY: notebook
+notebook:  ## to run jupyter lab in examples
+	@poetry run jupyter lab
