@@ -1,4 +1,4 @@
-"""Test for synthx.core.sx.sample."""
+"""Test for synthx.core.sample."""
 
 import polars as pl
 import pytest
