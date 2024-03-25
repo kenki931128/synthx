@@ -88,3 +88,54 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
         raise NoFeasibleModelError('synthetic control optimization failed.')
 
     return sx.SyntheticControlResult(dataset=dataset, control_unit_weights=solution.x)
+
+
+def placebo_test(
+    dataset: sx.Dataset,
+) -> tuple[float, list[float], sx.SyntheticControlResult, list[sx.SyntheticControlResult]]:
+    """Perform a placebo test to assess the significance of the intervention effect.
+
+    This function applies the synthetic control method to the test area and each control area
+    in the given dataset, estimates the placebo effects, and returns the results.
+
+    Args:
+        dataset (sx.Dataset): The dataset containing the time series data for the test and control areas.
+
+    Returns:
+        tuple: A tuple containing the following elements:
+            - effect_test (float): The estimated effect of the intervention in the test area.
+            - effects_placebo (List[float]): The estimated placebo effects for each control area.
+            - sc_test (sx.SyntheticControlResult): The synthetic control result for the test area.
+            - scs_placebo (List[sx.SyntheticControlResult]): The synthetic control results
+                for each control area.
+    """
+    # placebo effect in test area
+    sc_test = synthetic_control(dataset)
+    effect_test = sc_test.estimate_effects()
+
+    # placebo effects in control areas
+    effects_placebo: list[float] = []
+    scs_placebo: list[sx.SyntheticControlResult] = []
+    control_units = (
+        dataset.data.filter(~dataset.data[dataset.unit_column].is_in(dataset.intervention_units))[
+            dataset.unit_column
+        ]
+        .unique()
+        .to_list()
+    )
+    df_placebo = dataset.data.filter(dataset.data[dataset.unit_column].is_in(control_units))
+    for test_unit_placebo in control_units:
+        dataset_placebo = sx.Dataset(
+            df_placebo,
+            unit_column=dataset.unit_column,
+            time_column=dataset.time_column,
+            y_column=dataset.y_column,
+            covariate_columns=dataset.covariate_columns,
+            intervention_units=test_unit_placebo,
+            intervention_time=dataset.intervention_time,
+        )
+        sc_placebo = synthetic_control(dataset_placebo)
+        effects_placebo.append(sc_placebo.estimate_effects())
+        scs_placebo.append(sc_placebo)
+
+    return effect_test, effects_placebo, sc_test, scs_placebo
