@@ -7,6 +7,7 @@ from pytest_mock import MockerFixture
 import synthx as sx
 from synthx.errors import (
     ColumnNotFoundError,
+    InconsistentTimestampsError,
     InvalidColumnTypeError,
     InvalidInterventionTimeError,
     InvalidInterventionUnitError,
@@ -163,6 +164,27 @@ class TestDataset:
         with pytest.raises(InvalidColumnTypeError):
             sx.Dataset(
                 data=sample_data,
+                unit_column='unit',
+                time_column='time',
+                y_column='y',
+                covariate_columns=['cov1', 'cov2'],
+                intervention_units=[1],
+                intervention_time=2,
+            )
+
+    def test_validate_inconsistent_timestamps(self) -> None:
+        inconsistent_data = pl.DataFrame(
+            {
+                'unit': [1, 1, 1, 2, 2],
+                'time': [1, 2, 3, 1, 2],
+                'y': [1.0, 2.0, 3.0, 4.0, 5.0],
+                'cov1': [0.1, 0.2, 0.3, 0.4, 0.5],
+                'cov2': [1, 2, 3, 4, 5],
+            }
+        )
+        with pytest.raises(InconsistentTimestampsError):
+            sx.Dataset(
+                data=inconsistent_data,
                 unit_column='unit',
                 time_column='time',
                 y_column='y',
