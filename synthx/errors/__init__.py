@@ -19,3 +19,7 @@ class InvalidInterventionTimeError(Exception):
 
 class NoFeasibleModelError(Exception):
     """Exception raised when synthetic control does not work."""
+
+
+class InconsistentTimestampsError(Exception):
+    """Exception raised when timestamp is not inconcistent across units."""
