@@ -80,8 +80,8 @@ def sample(
     time_base = np.random.normal(0, 1, n_time) + np.linspace(0, 1, n_time)
 
     # coefficients of covariates
-    observed_covariate_coefficients = np.random.normal(0, 1, n_observed_covariates)
-    unobserved_covariate_coefficients = np.random.normal(0, 1, n_unobserved_covariates)
+    observed_covariate_coefficients = np.random.normal(0, 1, (n_time, n_observed_covariates))
+    unobserved_covariate_coefficients = np.random.normal(0, 1, (n_time, n_unobserved_covariates))
 
     # covariates data
     observed_covariates = np.random.normal(0, 1, (n_units, n_observed_covariates))
@@ -96,10 +96,10 @@ def sample(
 
             # covariate effect of i unit
             observed_covariate_effect = np.dot(
-                observed_covariates[i], observed_covariate_coefficients
+                observed_covariate_coefficients[t], observed_covariates[i]
             )
             unobserved_covariate_effect = np.dot(
-                unobserved_covariates[i], unobserved_covariate_coefficients
+                unobserved_covariate_coefficients[t], unobserved_covariates[i]
             )
 
             # Y_it = δ_t + θ_t*Z_i + λ_t*μ_i + ε_it
