@@ -38,6 +38,9 @@ class Dataset:
             covariate_columns (Optional[list[str]]): The columns representing the covariates.
             intervention_units (Union[Any, list[Any]]): A list of intervented units
             intervention_time (Union[int, date]): When the intervention or event happens.
+
+        TODO:
+            - Validate if all units have the same timestamps
         """
         self.data = data
         self.unit_column = unit_column
