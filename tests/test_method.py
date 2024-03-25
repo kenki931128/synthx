@@ -54,3 +54,46 @@ class TestSyntheticControl:
         mocker.patch('scipy.optimize.minimize', return_value=OptimizeResult(x=None, success=False))
         with pytest.raises(NoFeasibleModelError):
             synthetic_control(dummy_dataset)
+
+
+class TestPlaceboTest:
+    @pytest.fixture
+    def dummy_dataset(self) -> sx.Dataset:
+        data = pl.DataFrame(
+            {
+                'unit': [1, 1, 1, 2, 2, 2, 3, 3, 3],
+                'time': [1, 2, 3, 1, 2, 3, 1, 2, 3],
+                'y': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+                'cov1': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+            }
+        )
+        return sx.Dataset(
+            data=data,
+            unit_column='unit',
+            time_column='time',
+            y_column='y',
+            covariate_columns=['cov1'],
+            intervention_units=[1],
+            intervention_time=2,
+        )
+
+    def test_placebo_test_expected_type(self, dummy_dataset: sx.Dataset) -> None:
+        effect_test, effects_placebo, sc_test, scs_placebo = sx.placebo_test(dummy_dataset)
+        assert isinstance(effect_test, float)
+        assert isinstance(effects_placebo, list)
+        assert isinstance(sc_test, sx.SyntheticControlResult)
+        assert isinstance(scs_placebo, list)
+
+    def test_placebo_test_number_of_units(self, dummy_dataset: sx.Dataset) -> None:
+        _, effects_placebo, _, scs_placebo = sx.placebo_test(dummy_dataset)
+        control_units = (
+            dummy_dataset.data.filter(
+                ~dummy_dataset.data[dummy_dataset.unit_column].is_in(
+                    dummy_dataset.intervention_units
+                )
+            )[dummy_dataset.unit_column]
+            .unique()
+            .to_list()
+        )
+        assert len(effects_placebo) == len(control_units)
+        assert len(scs_placebo) == len(control_units)
