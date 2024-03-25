@@ -15,3 +15,7 @@ class InvalidInterventionUnitError(Exception):
 
 class InvalidInterventionTimeError(Exception):
     """Exception raised when no data at a specified intervention time."""
+
+
+class NoFeasibleModelError(Exception):
+    """Exception raised when synthetic control does not work."""
