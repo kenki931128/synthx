@@ -53,5 +53,5 @@ exclude_dirs = [".venv"]
 skips = ["*/test_*.py"]
 
 [[tool.mypy.overrides]]
-module = ["scipy.optimize"]
+module = ["scipy", "scipy.optimize"]
 ignore_missing_imports = true
