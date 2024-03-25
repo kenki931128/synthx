@@ -11,6 +11,7 @@ python = "^3.9"
 numpy = "^1.26.4"
 pandas = "^2.2.1"
 polars = "^0.20.16"
+scipy = "^1.12.0"
 matplotlib = "^3.8.3"
 
 [tool.poetry.group.dev.dependencies]
@@ -52,5 +53,5 @@ exclude_dirs = [".venv"]
 skips = ["*/test_*.py"]
 
 [[tool.mypy.overrides]]
-module = []
+module = ["scipy.optimize"]
 ignore_missing_imports = true
