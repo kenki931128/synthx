@@ -8,6 +8,7 @@ import polars as pl
 
 from synthx.errors import (
     ColumnNotFoundError,
+    InconsistentTimestampsError,
     InvalidColumnTypeError,
     InvalidInterventionTimeError,
     InvalidInterventionUnitError,
@@ -38,9 +39,6 @@ class Dataset:
             covariate_columns (Optional[list[str]]): The columns representing the covariates.
             intervention_units (Union[Any, list[Any]]): A list of intervented units
             intervention_time (Union[int, date]): When the intervention or event happens.
-
-        TODO:
-            - Validate if all units have the same timestamps
         """
         self.data = data
         self.unit_column = unit_column
@@ -115,6 +113,13 @@ class Dataset:
             raise ColumnNotFoundError(self.y_column)
         if self.data[self.y_column].dtype != pl.Float64:
             raise InvalidColumnTypeError(f'{self.y_column} should be float.')
+
+        units = self.data[self.unit_column].unique()
+        timestamps = self.data[self.time_column].unique()
+        for unit in units:
+            unit_timestamps = self.data.filter(self.data[self.unit_column] == unit)[self.time_column]
+            if not timestamps.equals(unit_timestamps):
+                raise InconsistentTimestampsError(f'Unit {unit} has inconsistent timestamps.')
 
         if self.covariate_columns is not None:
             for covariate_column in self.covariate_columns:
