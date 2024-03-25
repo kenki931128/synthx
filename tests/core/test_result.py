@@ -74,7 +74,7 @@ class TestSyntheticControlResult:
         assert np.allclose(dummy_result.y_control, expected_y_control)
 
     def test_estimate_effects(self, dummy_result: sx.SyntheticControlResult) -> None:
-        expected_effect = -4.5
+        expected_effect = 0
         assert dummy_result.estimate_effects() == expected_effect
 
     def test_plot(self, dummy_result: sx.SyntheticControlResult, mocker: MockerFixture) -> None:

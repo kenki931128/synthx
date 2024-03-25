@@ -79,7 +79,41 @@ class SyntheticControlResult:
         Returns:
             float: The estimated effect of the intervention.
         """
-        return np.mean(self.y_test - self.y_control)
+        # dataset before intervention
+        pre_df = self.dataset.data.filter(
+            self.dataset.data[self.dataset.time_column] < self.dataset.intervention_time
+        )
+        pre_result = SyntheticControlResult(
+            dataset=sx.Dataset(
+                pre_df,
+                unit_column=self.dataset.unit_column,
+                time_column=self.dataset.time_column,
+                y_column=self.dataset.y_column,
+                covariate_columns=self.dataset.covariate_columns,
+                intervention_units=self.dataset.intervention_units,
+                intervention_time=0,
+            ),
+            control_unit_weights=self.control_unit_weights,
+        )
+        # dataset after intervention
+        post_df = self.dataset.data.filter(
+            self.dataset.data[self.dataset.time_column] >= self.dataset.intervention_time
+        )
+        post_result = SyntheticControlResult(
+            dataset=sx.Dataset(
+                post_df,
+                unit_column=self.dataset.unit_column,
+                time_column=self.dataset.time_column,
+                y_column=self.dataset.y_column,
+                covariate_columns=self.dataset.covariate_columns,
+                intervention_units=self.dataset.intervention_units,
+                intervention_time=0,
+            ),
+            control_unit_weights=self.control_unit_weights,
+        )
+        return np.mean(post_result.y_test - post_result.y_control) - np.mean(
+            pre_result.y_test - pre_result.y_control
+        )
 
     def plot(self, save: Optional[str] = None) -> None:
         """Plot the target variable over time for both test and control units.
