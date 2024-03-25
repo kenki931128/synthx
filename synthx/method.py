@@ -1,7 +1,7 @@
 """Synthetic Control Method."""
 
 import numpy as np
-from scipy.optimize import minimize
+import scipy.optimize
 
 import synthx as sx
 from synthx.errors import NoFeasibleModelError
@@ -77,7 +77,7 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
     initial_unit_weights = np.ones(len(control_units)) / len(control_units)
     bounds = [(0, 1)] * len(control_units)
     # The optimization of unit weights is performed using the 'minimize' function from scipy.
-    solution = minimize(
+    solution = scipy.optimize.minimize(
         objective,
         initial_unit_weights,
         bounds=bounds,
