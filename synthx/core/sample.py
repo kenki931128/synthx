@@ -15,6 +15,7 @@ def sample(
     intervention_units: Union[int, list[int]],
     intervention_time: int,
     intervention_effect: int,
+    noise_effect: float = 0.1,
     seed: Optional[int] = None,
 ) -> pl.DataFrame:
     """Generates a synthetic dataset for causal inference tasks.
@@ -27,6 +28,8 @@ def sample(
         intervention_units (int | list[int]): A list of intervented units. Each less than n_units.
         intervention_time (int): When the intervention or event happens. less than n_time.
         intervention_effect (int): effect of the intervention. 1 should be normal.
+        noise_effect (float): effect of the noise.
+        seed (Optional[int]): for ramdom.
 
     Returns:
         pl.DataFrame: A polars DataFrame containing the generated dataset with columns
@@ -89,7 +92,7 @@ def sample(
     for i in range(n_units):
         for t in range(n_time):
             # noise
-            noise = np.random.normal(0, 1)
+            noise = np.random.normal(0, noise_effect)
 
             # covariate effect of i unit
             observed_covariate_effect = np.dot(
