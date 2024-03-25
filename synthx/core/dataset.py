@@ -117,7 +117,9 @@ class Dataset:
         units = self.data[self.unit_column].unique()
         timestamps = self.data[self.time_column].unique()
         for unit in units:
-            unit_timestamps = self.data.filter(self.data[self.unit_column] == unit)[self.time_column]
+            unit_timestamps = self.data.filter(self.data[self.unit_column] == unit)[
+                self.time_column
+            ]
             if not timestamps.equals(unit_timestamps):
                 raise InconsistentTimestampsError(f'Unit {unit} has inconsistent timestamps.')
 
