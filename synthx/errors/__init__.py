@@ -23,3 +23,7 @@ class NoFeasibleModelError(Exception):
 
 class InconsistentTimestampsError(Exception):
     """Exception raised when timestamp is not inconcistent across units."""
+
+
+class InvalidNormalizationError(Exception):
+    """Exception raised when undefined normalization is selected."""
