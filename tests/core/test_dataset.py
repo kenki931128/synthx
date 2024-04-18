@@ -11,6 +11,7 @@ from synthx.errors import (
     InvalidColumnTypeError,
     InvalidInterventionTimeError,
     InvalidInterventionUnitError,
+    InvalidNormalizationError,
 )
 
 
@@ -216,4 +217,56 @@ class TestDataset:
                 covariate_columns=['cov1', 'cov2'],
                 intervention_units=[1],
                 intervention_time=2,
+            )
+
+    def test_normalization_z(self, sample_data: pl.DataFrame) -> None:
+        dataset = sx.Dataset(
+            data=sample_data,
+            unit_column='unit',
+            time_column='time',
+            y_column='y',
+            covariate_columns=['cov1', 'cov2'],
+            intervention_units=[1],
+            intervention_time=2,
+            norm='z',
+        )
+        assert sample_data.columns == dataset.data.columns
+
+    def test_normalization_cv(self, sample_data: pl.DataFrame) -> None:
+        dataset = sx.Dataset(
+            data=sample_data,
+            unit_column='unit',
+            time_column='time',
+            y_column='y',
+            covariate_columns=['cov1', 'cov2'],
+            intervention_units=[1],
+            intervention_time=2,
+            norm='cv',
+        )
+        assert sample_data.columns == dataset.data.columns
+
+    def test_normalization_yeo_johnson(self, sample_data: pl.DataFrame) -> None:
+        dataset = sx.Dataset(
+            data=sample_data,
+            unit_column='unit',
+            time_column='time',
+            y_column='y',
+            covariate_columns=['cov1', 'cov2'],
+            intervention_units=[1],
+            intervention_time=2,
+            norm='yeo_johnson',
+        )
+        assert sample_data.columns == dataset.data.columns
+
+    def test_normalization_invalid(self, sample_data: pl.DataFrame) -> None:
+        with pytest.raises(InvalidNormalizationError):
+            sx.Dataset(
+                data=sample_data,
+                unit_column='unit',
+                time_column='time',
+                y_column='y',
+                covariate_columns=['cov1', 'cov2'],
+                intervention_units=[1],
+                intervention_time=2,
+                norm='invalid_norm',
             )
