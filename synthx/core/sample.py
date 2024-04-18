@@ -16,6 +16,8 @@ def sample(
     intervention_time: int,
     intervention_effect: int,
     noise_effect: float = 0.1,
+    loc: float = 0,
+    scale: float = 1,
     seed: Optional[int] = None,
 ) -> pl.DataFrame:
     """Generates a synthetic dataset for causal inference tasks.
@@ -29,6 +31,8 @@ def sample(
         intervention_time (int): When the intervention or event happens. less than n_time.
         intervention_effect (int): effect of the intervention. 1 should be normal.
         noise_effect (float): effect of the noise.
+        loc (float): mean of the distribution.
+        scale (float): std of the distribution. Must be non-negative.
         seed (Optional[int]): for ramdom.
 
     Returns:
@@ -76,16 +80,18 @@ def sample(
 
     # base value of units and time
     # actually units_base is not required here as it's also included in covariates.
-    units_base = np.random.normal(0, 1, n_units) + 1
-    time_base = np.random.normal(0, 1, n_time) + np.linspace(0, 1, n_time)
+    units_base = np.random.normal(loc, scale, n_units) + 1
+    time_base = np.random.normal(loc, scale, n_time) + np.linspace(loc - scale, loc + scale, n_time)
 
     # coefficients of covariates
-    observed_covariate_coefficients = np.random.normal(0, 1, (n_time, n_observed_covariates))
-    unobserved_covariate_coefficients = np.random.normal(0, 1, (n_time, n_unobserved_covariates))
+    observed_covariate_coefficients = np.random.normal(loc, scale, (n_time, n_observed_covariates))
+    unobserved_covariate_coefficients = np.random.normal(
+        loc, scale, (n_time, n_unobserved_covariates)
+    )
 
     # covariates data
-    observed_covariates = np.random.normal(0, 1, (n_units, n_observed_covariates))
-    unobserved_covariates = np.random.normal(0, 1, (n_units, n_unobserved_covariates))
+    observed_covariates = np.random.normal(loc, scale, (n_units, n_observed_covariates))
+    unobserved_covariates = np.random.normal(loc, scale, (n_units, n_unobserved_covariates))
 
     # generating data
     data = []
