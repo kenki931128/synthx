@@ -17,6 +17,8 @@ class TestSample:
         self.intervention_time = 16
         self.intervention_effect = 1
         self.noise_effect = 0.1
+        self.loc = 0
+        self.scale = 1
         self.seed = 42
 
     def test_sample_output_shape(self) -> None:
@@ -44,6 +46,8 @@ class TestSample:
             intervention_time=self.intervention_time,
             intervention_effect=self.intervention_effect,
             noise_effect=self.noise_effect,
+            loc=self.loc,
+            scale=self.scale,
             seed=self.seed,
         )
         expected_columns = ['unit', 'time', 'y'] + [
@@ -61,6 +65,8 @@ class TestSample:
             intervention_time=self.intervention_time,
             intervention_effect=self.intervention_effect,
             noise_effect=self.noise_effect,
+            loc=self.loc,
+            scale=self.scale,
             seed=self.seed,
         )
         df2 = sx.sample(
@@ -72,6 +78,8 @@ class TestSample:
             intervention_time=self.intervention_time,
             intervention_effect=self.intervention_effect,
             noise_effect=self.noise_effect,
+            loc=self.loc,
+            scale=self.scale,
             seed=self.seed,
         )
         assert df1.equals(df2)
@@ -87,6 +95,8 @@ class TestSample:
                 intervention_time=self.intervention_time,
                 intervention_effect=self.intervention_effect,
                 noise_effect=self.noise_effect,
+                loc=self.loc,
+                scale=self.scale,
                 seed=self.seed,
             )
         with pytest.raises(ValueError):
@@ -99,6 +109,8 @@ class TestSample:
                 intervention_time=self.intervention_time,
                 intervention_effect=self.intervention_effect,
                 noise_effect=self.noise_effect,
+                loc=self.loc,
+                scale=self.scale,
                 seed=self.seed,
             )
         with pytest.raises(ValueError):
@@ -111,6 +123,8 @@ class TestSample:
                 intervention_time=self.intervention_time,
                 intervention_effect=self.intervention_effect,
                 noise_effect=self.noise_effect,
+                loc=self.loc,
+                scale=self.scale,
                 seed=self.seed,
             )
         with pytest.raises(ValueError):
@@ -123,6 +137,8 @@ class TestSample:
                 intervention_time=self.intervention_time,
                 intervention_effect=self.intervention_effect,
                 noise_effect=self.noise_effect,
+                loc=self.loc,
+                scale=self.scale,
                 seed=self.seed,
             )
         with pytest.raises(ValueError):
@@ -135,6 +151,8 @@ class TestSample:
                 intervention_time=self.intervention_time,
                 intervention_effect=self.intervention_effect,
                 noise_effect=self.noise_effect,
+                loc=self.loc,
+                scale=self.scale,
                 seed=self.seed,
             )
         with pytest.raises(ValueError):
@@ -147,5 +165,21 @@ class TestSample:
                 intervention_time=30,
                 intervention_effect=self.intervention_effect,
                 noise_effect=self.noise_effect,
+                loc=self.loc,
+                scale=self.scale,
+                seed=self.seed,
+            )
+        with pytest.raises(ValueError):
+            sx.sample(
+                n_units=self.n_units,
+                n_time=self.n_time,
+                n_observed_covariates=self.n_observed_covariates,
+                n_unobserved_covariates=self.n_unobserved_covariates,
+                intervention_units=self.intervention_units,
+                intervention_time=self.intervention_time,
+                intervention_effect=self.intervention_effect,
+                noise_effect=self.noise_effect,
+                loc=self.loc,
+                scale=-1,
                 seed=self.seed,
             )
