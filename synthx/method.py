@@ -2,6 +2,7 @@
 
 import numpy as np
 import scipy.optimize
+from tqdm import tqdm
 
 import synthx as sx
 from synthx.errors import NoFeasibleModelError
@@ -124,7 +125,7 @@ def placebo_test(
         .to_list()
     )
     df_placebo = dataset.data.filter(dataset.data[dataset.unit_column].is_in(control_units))
-    for test_unit_placebo in control_units:
+    for test_unit_placebo in tqdm(control_units):
         dataset_placebo = sx.Dataset(
             df_placebo,
             unit_column=dataset.unit_column,
