@@ -4,6 +4,7 @@ import sys
 from typing import Optional
 
 import numpy as np
+import polars as pl
 import scipy.optimize
 from joblib import Parallel, delayed
 from tqdm import tqdm
@@ -193,3 +194,56 @@ def placebo_test(
             scs_placebo.append(sc_placebo)
 
     return effect_test, effects_placebo, sc_test, scs_placebo
+
+
+def sensitivity_check(
+    dataset: sx.Dataset, effects_placebo: list[float], p_value_target: float = 0.03
+) -> Optional[float]:
+    """Perform a sensitivity check on the synthetic control results.
+
+    Args:
+        dataset (sx.Dataset): The dataset for the synthetic control analysis.
+        effects_placebo (list[float]): The list of placebo effects estimated.
+        p_value_target (float, optional): The target p-value threshold for statistical significance.
+
+    Returns:
+        float or None: The uplift which becomes statistically significant.
+    """
+    df = dataset.data
+
+    for uplift in tqdm(np.arange(1, 3, 0.01)):
+        df_sensitivity = df.with_columns(
+            pl.when(
+                pl.col(dataset.unit_column).is_in(dataset.intervention_units)
+                & (pl.col(dataset.time_column) >= dataset.intervention_time)
+            )
+            .then(pl.col(dataset.y_column) * uplift)
+            .otherwise(pl.col(dataset.y_column))
+            .alias('y')
+        )
+
+        dataset_sensitivity = sx.Dataset(
+            df_sensitivity,
+            unit_column=dataset.unit_column,
+            time_column=dataset.time_column,
+            y_column=dataset.y_column,
+            covariate_columns=dataset.covariate_columns,
+            intervention_units=dataset.intervention_units,
+            intervention_time=dataset.intervention_time,
+        )
+
+        try:
+            sc = synthetic_control(dataset_sensitivity)
+        except NoFeasibleModelError:
+            tqdm.write(
+                f'sensitivity synthetic control optimization failed: uplift {uplift}.',
+                file=sys.stderr,
+            )
+            continue
+
+        p_value = sx.stats.calc_p_value(sc.estimate_effects(), effects_placebo)
+        tqdm.write(f'uplift: {uplift}, p value: {p_value}.', file=sys.stderr)
+        if p_value <= p_value_target:
+            return uplift
+
+    return None
