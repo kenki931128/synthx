@@ -130,7 +130,7 @@ def placebo_test(
         .to_list()
     )
     df_placebo = dataset.data.filter(dataset.data[dataset.unit_column].is_in(control_units))
-    for test_unit_placebo in tqdm(control_units, file=sys.stdout):
+    for test_unit_placebo in tqdm(control_units):
         dataset_placebo = sx.Dataset(
             df_placebo,
             unit_column=dataset.unit_column,
@@ -143,7 +143,10 @@ def placebo_test(
         try:
             sc_placebo = synthetic_control(dataset_placebo)
         except NoFeasibleModelError:
-            tqdm.write(f'placebo synthetic control optimization failed: unit {test_unit_placebo}.')
+            tqdm.write(
+                f'placebo synthetic control optimization failed: unit {test_unit_placebo}.',
+                file=sys.stderr,
+            )
             continue
         effects_placebo.append(sc_placebo.estimate_effects())
         scs_placebo.append(sc_placebo)
