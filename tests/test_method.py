@@ -8,7 +8,7 @@ from scipy.optimize import OptimizeResult
 
 import synthx as sx
 from synthx.errors import NoFeasibleModelError
-from synthx.method import synthetic_control
+from synthx.method import sensitivity_check, synthetic_control
 
 
 class TestSyntheticControl:
@@ -97,3 +97,66 @@ class TestPlaceboTest:
         )
         assert len(effects_placebo) == len(control_units)
         assert len(scs_placebo) == len(control_units)
+
+
+class TestSensitivityCheck:
+    @pytest.fixture
+    def dummy_dataset(self) -> sx.Dataset:
+        data = pl.DataFrame(
+            {
+                'unit': [1, 1, 1, 2, 2, 2, 3, 3, 3],
+                'time': [1, 2, 3, 1, 2, 3, 1, 2, 3],
+                'y': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+                'cov1': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+            }
+        )
+        return sx.Dataset(
+            data=data,
+            unit_column='unit',
+            time_column='time',
+            y_column='y',
+            covariate_columns=['cov1'],
+            intervention_units=[1],
+            intervention_time=2,
+        )
+
+    def test_sensitivity_check_uplift_found(
+        self, dummy_dataset: sx.Dataset, mocker: MockerFixture
+    ) -> None:
+        mocker.patch(
+            'synthx.method.synthetic_control',
+            return_value=mocker.Mock(estimate_effects=mocker.Mock(return_value=1.5)),
+        )
+        mocker.patch('synthx.stats.calc_p_value', side_effect=[0.05, 0.02])
+
+        uplift = sensitivity_check(
+            dummy_dataset, effects_placebo=[1.0, 1.1, 1.2], p_value_target=0.03
+        )
+
+        assert uplift == 1.01
+
+    def test_sensitivity_check_no_uplift_found(
+        self, dummy_dataset: sx.Dataset, mocker: MockerFixture
+    ) -> None:
+        mocker.patch(
+            'synthx.method.synthetic_control',
+            return_value=mocker.Mock(estimate_effects=mocker.Mock(return_value=1.5)),
+        )
+        mocker.patch('synthx.stats.calc_p_value', return_value=0.1)
+
+        uplift = sensitivity_check(
+            dummy_dataset, effects_placebo=[1.0, 1.1, 1.2], p_value_target=0.03
+        )
+
+        assert uplift is None
+
+    def test_sensitivity_check_optimization_failure(
+        self, dummy_dataset: sx.Dataset, mocker: MockerFixture
+    ) -> None:
+        mocker.patch('synthx.method.synthetic_control', side_effect=NoFeasibleModelError)
+
+        uplift = sensitivity_check(
+            dummy_dataset, effects_placebo=[1.0, 1.1, 1.2], p_value_target=0.03
+        )
+
+        assert uplift is None
