@@ -1,5 +1,7 @@
 """Synthetic Control Method."""
 
+import sys
+
 import numpy as np
 import scipy.optimize
 from tqdm import tqdm
@@ -111,7 +113,10 @@ def placebo_test(
                 for each control area.
     """
     # placebo effect in test area
-    sc_test = synthetic_control(dataset)
+    try:
+        sc_test = synthetic_control(dataset)
+    except NoFeasibleModelError:
+        raise NoFeasibleModelError('synthetic control optimization failed for test units.')
     effect_test = sc_test.estimate_effects()
 
     # placebo effects in control areas
@@ -125,7 +130,7 @@ def placebo_test(
         .to_list()
     )
     df_placebo = dataset.data.filter(dataset.data[dataset.unit_column].is_in(control_units))
-    for test_unit_placebo in tqdm(control_units):
+    for test_unit_placebo in tqdm(control_units, file=sys.stdout):
         dataset_placebo = sx.Dataset(
             df_placebo,
             unit_column=dataset.unit_column,
@@ -135,7 +140,11 @@ def placebo_test(
             intervention_units=test_unit_placebo,
             intervention_time=dataset.intervention_time,
         )
-        sc_placebo = synthetic_control(dataset_placebo)
+        try:
+            sc_placebo = synthetic_control(dataset_placebo)
+        except NoFeasibleModelError:
+            tqdm.write(f'placebo synthetic control optimization failed: unit {test_unit_placebo}.')
+            continue
         effects_placebo.append(sc_placebo.estimate_effects())
         scs_placebo.append(sc_placebo)
 
