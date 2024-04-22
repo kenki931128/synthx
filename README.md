@@ -143,6 +143,18 @@ Calculate the p-value of the estimated treatment effect using the `calc_p_value(
 0.03228841882463891
 ```
 
+### Sensitivity Check
+
+Perform a sensitivity check on the synthetic control results using the `sensitivity_check()` function.
+
+```python
+>>> effect_test, effects_placebo, sc_test, scs_placebo = sx.placebo_test(dataset)
+>>> sensitivity_check(dataset, effects_placebo)
+1.05
+```
+
+This means this set up can capture the effect of the intervention which has more than 5 % uplift.
+
 ## Contributing
 
 Please read [developer docs](./docs/developers/README.md) for information on how to contribute to the project.
