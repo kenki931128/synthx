@@ -17,7 +17,6 @@ class TestSample:
         self.intervention_time = 16
         self.intervention_effect = 1
         self.noise_effect = 0.1
-        self.loc = 0
         self.scale = 1
         self.seed = 42
 
@@ -46,7 +45,6 @@ class TestSample:
             intervention_time=self.intervention_time,
             intervention_effect=self.intervention_effect,
             noise_effect=self.noise_effect,
-            loc=self.loc,
             scale=self.scale,
             seed=self.seed,
         )
@@ -65,7 +63,6 @@ class TestSample:
             intervention_time=self.intervention_time,
             intervention_effect=self.intervention_effect,
             noise_effect=self.noise_effect,
-            loc=self.loc,
             scale=self.scale,
             seed=self.seed,
         )
@@ -78,7 +75,6 @@ class TestSample:
             intervention_time=self.intervention_time,
             intervention_effect=self.intervention_effect,
             noise_effect=self.noise_effect,
-            loc=self.loc,
             scale=self.scale,
             seed=self.seed,
         )
@@ -95,7 +91,6 @@ class TestSample:
                 intervention_time=self.intervention_time,
                 intervention_effect=self.intervention_effect,
                 noise_effect=self.noise_effect,
-                loc=self.loc,
                 scale=self.scale,
                 seed=self.seed,
             )
@@ -109,7 +104,6 @@ class TestSample:
                 intervention_time=self.intervention_time,
                 intervention_effect=self.intervention_effect,
                 noise_effect=self.noise_effect,
-                loc=self.loc,
                 scale=self.scale,
                 seed=self.seed,
             )
@@ -123,7 +117,6 @@ class TestSample:
                 intervention_time=self.intervention_time,
                 intervention_effect=self.intervention_effect,
                 noise_effect=self.noise_effect,
-                loc=self.loc,
                 scale=self.scale,
                 seed=self.seed,
             )
@@ -137,7 +130,6 @@ class TestSample:
                 intervention_time=self.intervention_time,
                 intervention_effect=self.intervention_effect,
                 noise_effect=self.noise_effect,
-                loc=self.loc,
                 scale=self.scale,
                 seed=self.seed,
             )
@@ -151,7 +143,6 @@ class TestSample:
                 intervention_time=self.intervention_time,
                 intervention_effect=self.intervention_effect,
                 noise_effect=self.noise_effect,
-                loc=self.loc,
                 scale=self.scale,
                 seed=self.seed,
             )
@@ -165,7 +156,6 @@ class TestSample:
                 intervention_time=30,
                 intervention_effect=self.intervention_effect,
                 noise_effect=self.noise_effect,
-                loc=self.loc,
                 scale=self.scale,
                 seed=self.seed,
             )
@@ -179,7 +169,6 @@ class TestSample:
                 intervention_time=self.intervention_time,
                 intervention_effect=self.intervention_effect,
                 noise_effect=self.noise_effect,
-                loc=self.loc,
                 scale=-1,
                 seed=self.seed,
             )

@@ -1,9 +1,12 @@
 """Synthetic Control Method."""
 
 import sys
+from typing import Optional
 
 import numpy as np
+import polars as pl
 import scipy.optimize
+from joblib import Parallel, delayed
 from tqdm import tqdm
 
 import synthx as sx
@@ -94,7 +97,7 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
 
 
 def placebo_test(
-    dataset: sx.Dataset,
+    dataset: sx.Dataset, n_jobs: int = -1
 ) -> tuple[float, list[float], sx.SyntheticControlResult, list[sx.SyntheticControlResult]]:
     """Perform a placebo test to assess the significance of the intervention effect.
 
@@ -103,6 +106,7 @@ def placebo_test(
 
     Args:
         dataset (sx.Dataset): The dataset containing the time series data for the test and control areas.
+        n_jobs (int): the number of cores used. -1 means using as many as possible.
 
     Returns:
         tuple: A tuple containing the following elements:
@@ -130,7 +134,33 @@ def placebo_test(
         .to_list()
     )
     df_placebo = dataset.data.filter(dataset.data[dataset.unit_column].is_in(control_units))
-    for test_unit_placebo in tqdm(control_units, file=sys.stdout):
+
+    def process_placebo(
+        test_unit_placebo: sx.Dataset,
+    ) -> Optional[tuple[float, sx.SyntheticControlResult]]:
+        """Apply synthetic control method to a single placebo unit and estimate the effect.
+
+        Args:
+            test_unit_placebo (sx.Dataset): The placebo unit to be used as the test unit.
+
+        Returns:
+            tuple[float, sx.SyntheticControlResult] or None: If the synthetic control optimization
+                is successful, returns a tuple containing the following elements:
+                - effect_placebo (float): The estimated placebo effect for the given control unit.
+                - sc_placebo (sx.SyntheticControlResult): The synthetic control result for placebo.
+                If the synthetic control optimization fails, returns None.
+
+        Side Effects:
+            Writes an error message to stderr using tqdm.write() if the synthetic control
+            optimization fails for the given placebo unit.
+
+        Note:
+            This function is intended to be used as a helper function within the placebo_test()
+            function for parallel processing of placebo tests. It assumes that the following
+            variables are defined in the outer scope:
+            - df_placebo (DataFrame): The subset dataset containing only the control units.
+            - dataset (sx.Dataset): The original dataset object.
+        """
         dataset_placebo = sx.Dataset(
             df_placebo,
             unit_column=dataset.unit_column,
@@ -142,10 +172,78 @@ def placebo_test(
         )
         try:
             sc_placebo = synthetic_control(dataset_placebo)
+            effect_placebo = sc_placebo.estimate_effects()
+            return effect_placebo, sc_placebo
         except NoFeasibleModelError:
-            tqdm.write(f'placebo synthetic control optimization failed: unit {test_unit_placebo}.')
-            continue
-        effects_placebo.append(sc_placebo.estimate_effects())
-        scs_placebo.append(sc_placebo)
+            tqdm.write(
+                f'placebo synthetic control optimization failed: unit {test_unit_placebo}.',
+                file=sys.stderr,
+            )
+            return None
+
+    results = Parallel(n_jobs=-1)(
+        delayed(process_placebo)(test_unit_placebo) for test_unit_placebo in tqdm(control_units)
+    )
+
+    effects_placebo = []
+    scs_placebo = []
+    for result in results:
+        if result is not None:
+            effect_placebo, sc_placebo = result
+            effects_placebo.append(effect_placebo)
+            scs_placebo.append(sc_placebo)
 
     return effect_test, effects_placebo, sc_test, scs_placebo
+
+
+def sensitivity_check(
+    dataset: sx.Dataset, effects_placebo: list[float], p_value_target: float = 0.03
+) -> Optional[float]:
+    """Perform a sensitivity check on the synthetic control results.
+
+    Args:
+        dataset (sx.Dataset): The dataset for the synthetic control analysis.
+        effects_placebo (list[float]): The list of placebo effects estimated.
+        p_value_target (float, optional): The target p-value threshold for statistical significance.
+
+    Returns:
+        float or None: The uplift which becomes statistically significant.
+    """
+    df = dataset.data
+
+    for uplift in tqdm(np.arange(1, 3, 0.01)):
+        df_sensitivity = df.with_columns(
+            pl.when(
+                pl.col(dataset.unit_column).is_in(dataset.intervention_units)
+                & (pl.col(dataset.time_column) >= dataset.intervention_time)
+            )
+            .then(pl.col(dataset.y_column) * uplift)
+            .otherwise(pl.col(dataset.y_column))
+            .alias('y')
+        )
+
+        dataset_sensitivity = sx.Dataset(
+            df_sensitivity,
+            unit_column=dataset.unit_column,
+            time_column=dataset.time_column,
+            y_column=dataset.y_column,
+            covariate_columns=dataset.covariate_columns,
+            intervention_units=dataset.intervention_units,
+            intervention_time=dataset.intervention_time,
+        )
+
+        try:
+            sc = synthetic_control(dataset_sensitivity)
+        except NoFeasibleModelError:
+            tqdm.write(
+                f'sensitivity synthetic control optimization failed: uplift {uplift}.',
+                file=sys.stderr,
+            )
+            continue
+
+        p_value = sx.stats.calc_p_value(sc.estimate_effects(), effects_placebo)
+        tqdm.write(f'uplift: {uplift}, p value: {p_value}.', file=sys.stderr)
+        if p_value <= p_value_target:
+            return uplift
+
+    return None
