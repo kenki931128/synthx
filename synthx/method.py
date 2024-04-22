@@ -242,7 +242,7 @@ def sensitivity_check(
             continue
 
         p_value = sx.stats.calc_p_value(sc.estimate_effects(), effects_placebo)
-        tqdm.write(f'uplift: {uplift}, p value: {p_value}.', file=sys.stderr)
+        tqdm.write(f'uplift: {uplift:.2f}, p value: {p_value}.', file=sys.stderr)
         if p_value <= p_value_target:
             return uplift
 
