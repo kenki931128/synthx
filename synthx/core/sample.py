@@ -14,9 +14,8 @@ def sample(
     n_unobserved_covariates: int,
     intervention_units: Union[int, list[int]],
     intervention_time: int,
-    intervention_effect: int,
-    noise_effect: float = 0.1,
-    loc: float = 0,
+    intervention_effect: int = 1,
+    noise_effect: float = 1,
     scale: float = 1,
     seed: Optional[int] = None,
 ) -> pl.DataFrame:
@@ -29,9 +28,8 @@ def sample(
         n_unobserved_covariates (int): The number of covariates such as the history in the region.
         intervention_units (int | list[int]): A list of intervented units. Each less than n_units.
         intervention_time (int): When the intervention or event happens. less than n_time.
-        intervention_effect (int): effect of the intervention. 1 should be normal.
+        intervention_effect (int): effect of the intervention. 1 (100%) means no effect.
         noise_effect (float): effect of the noise.
-        loc (float): mean of the distribution.
         scale (float): std of the distribution. Must be non-negative.
         seed (Optional[int]): for ramdom.
 
@@ -77,29 +75,43 @@ def sample(
         raise ValueError('all elements in intervention_units must be between 1 and n_units.')
     if not 1 <= intervention_time <= n_time:
         raise ValueError('intervention_time must be between 1 and n_time.')
+    if scale <= 0:
+        raise ValueError('scale must be positive.')
 
     # base value of units and time
     # actually units_base is not required here as it's also included in covariates.
-    units_base = np.random.normal(loc, scale, n_units) + 1
-    time_base = np.random.normal(loc, scale, n_time) + np.linspace(loc - scale, loc + scale, n_time)
+    units_base = np.random.normal(0, 1, n_units)
+    time_base = np.random.normal(0, 1, n_time)
 
     # coefficients of covariates
-    observed_covariate_coefficients = np.random.normal(loc, scale, (n_time, n_observed_covariates))
-    unobserved_covariate_coefficients = np.random.normal(
-        loc, scale, (n_time, n_unobserved_covariates)
+    observed_covariate_coefficients = (
+        4 * np.random.rand(n_time, n_observed_covariates) / n_observed_covariates
+    )
+    unobserved_covariate_coefficients = (
+        4 * np.random.rand(n_time, n_unobserved_covariates) / n_unobserved_covariates
     )
 
     # covariates data
-    observed_covariates = np.random.normal(loc, scale, (n_units, n_observed_covariates))
-    unobserved_covariates = np.random.normal(loc, scale, (n_units, n_unobserved_covariates))
+    observed_covariates = np.random.rand(n_units, n_observed_covariates)
+    unobserved_covariates = np.random.rand(n_units, n_unobserved_covariates)
+
+    # shift the values to secure the value >= 0
+    units_base = units_base - units_base.min()
+    units_base /= units_base.max()
+    time_base = time_base - time_base.min()
+    time_base /= time_base.max()
+
+    # time base added
+    time_base += np.linspace(0, 1, n_time)
+
+    # noise
+    noise = np.random.normal(0, noise_effect, (n_units, n_time))
+    noise -= noise.min()
 
     # generating data
     data = []
     for i in range(n_units):
         for t in range(n_time):
-            # noise
-            noise = np.random.normal(0, noise_effect)
-
             # covariate effect of i unit
             observed_covariate_effect = np.dot(
                 observed_covariate_coefficients[t], observed_covariates[i]
@@ -119,12 +131,16 @@ def sample(
                 + time_base[t]
                 + observed_covariate_effect
                 + unobserved_covariate_effect
-                + noise
+                + noise[i][t]
+                + 1  # To secure y > 0.
             )
+
+            # apply scale
+            y *= scale
 
             # Add intervention effect if intervented.
             if ((i + 1) in intervention_units) and ((t + 1) >= intervention_time):
-                y += intervention_effect
+                y *= intervention_effect
 
             # create data point
             point = {'unit': i + 1, 'time': t + 1, 'y': y}
