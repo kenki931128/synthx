@@ -1,9 +1,11 @@
 """Synthetic Control Method."""
 
 import sys
+from typing import Optional
 
 import numpy as np
 import scipy.optimize
+from joblib import Parallel, delayed
 from tqdm import tqdm
 
 import synthx as sx
@@ -94,7 +96,7 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
 
 
 def placebo_test(
-    dataset: sx.Dataset,
+    dataset: sx.Dataset, n_jobs: int = -1
 ) -> tuple[float, list[float], sx.SyntheticControlResult, list[sx.SyntheticControlResult]]:
     """Perform a placebo test to assess the significance of the intervention effect.
 
@@ -103,6 +105,7 @@ def placebo_test(
 
     Args:
         dataset (sx.Dataset): The dataset containing the time series data for the test and control areas.
+        n_jobs (int): the number of cores used. -1 means using as many as possible.
 
     Returns:
         tuple: A tuple containing the following elements:
@@ -130,7 +133,33 @@ def placebo_test(
         .to_list()
     )
     df_placebo = dataset.data.filter(dataset.data[dataset.unit_column].is_in(control_units))
-    for test_unit_placebo in tqdm(control_units):
+
+    def process_placebo(
+        test_unit_placebo: sx.Dataset,
+    ) -> Optional[tuple[float, sx.SyntheticControlResult]]:
+        """Apply synthetic control method to a single placebo unit and estimate the effect.
+
+        Args:
+            test_unit_placebo (sx.Dataset): The placebo unit to be used as the test unit.
+
+        Returns:
+            tuple[float, sx.SyntheticControlResult] or None: If the synthetic control optimization
+                is successful, returns a tuple containing the following elements:
+                - effect_placebo (float): The estimated placebo effect for the given control unit.
+                - sc_placebo (sx.SyntheticControlResult): The synthetic control result for placebo.
+                If the synthetic control optimization fails, returns None.
+
+        Side Effects:
+            Writes an error message to stderr using tqdm.write() if the synthetic control
+            optimization fails for the given placebo unit.
+
+        Note:
+            This function is intended to be used as a helper function within the placebo_test()
+            function for parallel processing of placebo tests. It assumes that the following
+            variables are defined in the outer scope:
+            - df_placebo (DataFrame): The subset dataset containing only the control units.
+            - dataset (sx.Dataset): The original dataset object.
+        """
         dataset_placebo = sx.Dataset(
             df_placebo,
             unit_column=dataset.unit_column,
@@ -142,13 +171,25 @@ def placebo_test(
         )
         try:
             sc_placebo = synthetic_control(dataset_placebo)
+            effect_placebo = sc_placebo.estimate_effects()
+            return effect_placebo, sc_placebo
         except NoFeasibleModelError:
             tqdm.write(
                 f'placebo synthetic control optimization failed: unit {test_unit_placebo}.',
                 file=sys.stderr,
             )
-            continue
-        effects_placebo.append(sc_placebo.estimate_effects())
-        scs_placebo.append(sc_placebo)
+            return None
+
+    results = Parallel(n_jobs=-1)(
+        delayed(process_placebo)(test_unit_placebo) for test_unit_placebo in tqdm(control_units)
+    )
+
+    effects_placebo = []
+    scs_placebo = []
+    for result in results:
+        if result is not None:
+            effect_placebo, sc_placebo = result
+            effects_placebo.append(effect_placebo)
+            scs_placebo.append(sc_placebo)
 
     return effect_test, effects_placebo, sc_test, scs_placebo
