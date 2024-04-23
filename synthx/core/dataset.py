@@ -30,6 +30,7 @@ class Dataset:
         covariate_columns: Optional[list[str]],
         intervention_units: Union[Any, list[Any]],
         intervention_time: Union[int, date],
+        validation_time: Optional[Union[int, date]] = None,
         norm: Optional[str] = None,
     ) -> None:
         """Initialize the Dataset.
@@ -42,6 +43,7 @@ class Dataset:
             covariate_columns (Optional[list[str]]): The columns representing the covariates.
             intervention_units (Union[Any, list[Any]]): A list of intervented units
             intervention_time (Union[int, date]): When the intervention or event happens.
+            validation_time (Optional[Union[int, date]]): validation time if needed.
             norm (Optional[str]): If not None, will normalize the y_column.
                 it should be 'z_standardize'
         """
@@ -54,6 +56,7 @@ class Dataset:
             intervention_units if isinstance(intervention_units, list) else [intervention_units]
         )
         self.intervention_time = intervention_time
+        self.validation_time = validation_time
         self.norm = norm
         self.__validate()
         self.__normalization()
@@ -71,7 +74,12 @@ class Dataset:
         for unit in units:
             unit_data = self.data.filter(pl.col(self.unit_column) == unit)
             plt.plot(unit_data[self.time_column], unit_data[self.y_column], label=f'Unit {unit}')
-        # Add vertical line for intervention time
+
+        # Add vertical line for validation time and intervention time
+        if self.validation_time is not None:
+            plt.axvline(
+                self.validation_time, color='orange', linestyle='--', label='Validation Time'  # type: ignore
+            )
         plt.axvline(
             self.intervention_time, color='red', linestyle='--', label='Intervention Time'  # type: ignore
         )
@@ -117,6 +125,16 @@ class Dataset:
             )
         if self.intervention_time > self.data[self.time_column].max():  # type: ignore
             raise InvalidInterventionTimeError(f'no date point at {self.intervention_time} time.')
+        if self.validation_time is not None and type(self.intervention_time) != type(
+            self.validation_time
+        ):
+            raise InvalidColumnTypeError(
+                f'intervention_time and validation_time should have the same type.'
+            )
+        if self.validation_time is not None and self.intervention_time <= self.validation_time:  # type: ignore
+            raise InvalidInterventionTimeError(
+                f'intervention_time should be later than validation_time.'
+            )
 
         if self.y_column not in self.data.columns:
             raise ColumnNotFoundError(self.y_column)
