@@ -1,6 +1,6 @@
 """Class containing synthetic control result."""
 
-from typing import Optional
+from typing import Any, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -50,17 +50,38 @@ class SyntheticControlResult:
         )
 
     @property
-    def y_test(self) -> np.ndarray:
+    def x_time(self) -> np.ndarray:
+        """Get the series of timestamp for x axis
+
+        Returns:
+            np.ndarray: numpy array of timestamp.
+        """
+        return self.dataset.data.filter(
+            self.dataset.data[self.dataset.unit_column] == self.dataset.intervention_units[0]
+        )[self.dataset.time_column].to_numpy()
+
+    def y_test(self, intervention_unit: Any) -> np.ndarray:
         """Get data in test group as an array.
+
+        Args:
+            intervention_unit (Any): intervented unit.
 
         Returns:
             np.ndarray: numpy array of test group.
         """
-        return self.df_test[self.dataset.y_column].to_numpy()
+        df_test_pivoted = self.df_test.pivot(
+            index=self.dataset.time_column,
+            columns=self.dataset.unit_column,
+            values=self.dataset.y_column,
+        ).drop(self.dataset.time_column)
+        # column type becomes string.
+        return df_test_pivoted[str(intervention_unit)].to_numpy()
 
-    @property
-    def y_control(self) -> np.ndarray:
-        """Get data in control group as an array.
+    def y_control(self, intervention_unit: Any) -> np.ndarray:
+        """Get data in control group as an array for specified intervention unit.
+
+        Args:
+            intervention_unit (Any): intervented unit.
 
         Returns:
             np.ndarray: numpy array of control group.
@@ -71,13 +92,16 @@ class SyntheticControlResult:
             values=self.dataset.y_column,
         ).drop(self.dataset.time_column)
         arr_control_pivoted = df_control_pivoted.to_numpy()
-        return np.sum(arr_control_pivoted * self.control_unit_weights, axis=1)
+        control_unit_weight = self.control_unit_weights[
+            self.dataset.intervention_units.index(intervention_unit)
+        ]
+        return np.sum(arr_control_pivoted * control_unit_weight, axis=1)
 
-    def estimate_effects(self) -> float:
+    def estimate_effects(self) -> list[float]:
         """Estimate the effects of the intervention.
 
         Returns:
-            float: The estimated effect of the intervention.
+            list[float]: The estimated effect of the intervention.
         """
         # dataset before intervention
         pre_df = self.dataset.data.filter(
@@ -111,9 +135,15 @@ class SyntheticControlResult:
             ),
             control_unit_weights=self.control_unit_weights,
         )
-        return np.mean(post_result.y_test - post_result.y_control) - np.mean(
-            pre_result.y_test - pre_result.y_control
-        )
+        return [
+            np.mean(
+                post_result.y_test(intervention_unit) - post_result.y_control(intervention_unit)
+            )
+            - np.mean(
+                pre_result.y_test(intervention_unit) - pre_result.y_control(intervention_unit)
+            )
+            for intervention_unit in self.dataset.intervention_units
+        ]
 
     def plot(self, save: Optional[str] = None) -> None:
         """Plot the target variable over time for both test and control units.
@@ -121,16 +151,26 @@ class SyntheticControlResult:
         Args:
             save (Optional[str]): file path to save the plot. If None, the plot will be displayed.
         """
-        plt.figure(figsize=(10, 6))
-        plt.plot(self.df_test[self.dataset.time_column], self.y_test, label='Test')
-        plt.plot(self.df_test[self.dataset.time_column], self.y_control, label='Control')
-        plt.axvline(
-            self.dataset.intervention_time, color='red', linestyle='--', label='Intervention Time'  # type: ignore
-        )
-        plt.xlabel('Time')
-        plt.ylabel('Target Variable')
-        plt.title('Target Variable Over Time')
-        plt.legend()
+        num_plots = len(self.dataset.intervention_units)
+        _, axs = plt.subplots(num_plots, 1, figsize=(10, 6 * num_plots))
+        # Convert axs to list in case num_plots == 1
+        axs = [axs] if num_plots == 1 else axs
+
+        for i, intervention_unit in enumerate(self.dataset.intervention_units):
+            axs[i].plot(self.x_time, self.y_test(intervention_unit), label='Test')
+            axs[i].plot(self.x_time, self.y_control(intervention_unit), label='Control')
+            axs[i].axvline(
+                self.dataset.intervention_time,
+                color='red',
+                linestyle='--',
+                label='Intervention Time',
+            )
+            axs[i].set_xlabel('Time')
+            axs[i].set_ylabel('Target Variable')
+            axs[i].set_title(f'Target Variable Over Time (Intervention Unit: {intervention_unit})')
+            axs[i].legend()
+
+        plt.tight_layout()
         if save is not None:
             plt.savefig(save)
         else:
