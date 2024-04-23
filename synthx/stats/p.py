@@ -12,7 +12,7 @@ def calc_p_value(
     """Calculate the p-value using the independent t-test.
 
     This function performs an independent t-test to compare the means of two groups
-    and returns the corresponding p-value.
+    and returns the corresponding p-value. This is two sample T Test.
 
     Args:
         effects_test (Union[float, list[float]]): The effect sizes of the test group.

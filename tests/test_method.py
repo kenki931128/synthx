@@ -40,13 +40,16 @@ class TestSyntheticControl:
         )
         result = synthetic_control(dummy_dataset)
         assert isinstance(result, sx.SyntheticControlResult)
-        assert np.allclose(result.control_unit_weights, [0.5, 0.5])
+        assert np.allclose(result.control_unit_weights, [[0.5, 0.5]])
 
-    def test_synthetic_control_multiple_units(self, dummy_dataset: sx.Dataset) -> None:
-        # TODO: Once implemented, update this test.
+    def test_synthetic_control_multiple_units(
+        self, dummy_dataset: sx.Dataset, mocker: MockerFixture
+    ) -> None:
         dummy_dataset.intervention_units = [1, 2]
-        with pytest.raises(NotImplementedError):
-            synthetic_control(dummy_dataset)
+        mocker.patch('scipy.optimize.minimize', return_value=OptimizeResult(x=[1], success=True))
+        result = synthetic_control(dummy_dataset)
+        assert isinstance(result, sx.SyntheticControlResult)
+        assert np.allclose(result.control_unit_weights, [[1], [1]])
 
     def test_synthetic_control_optimization_failure(
         self, dummy_dataset: sx.Dataset, mocker: MockerFixture
@@ -79,7 +82,7 @@ class TestPlaceboTest:
 
     def test_placebo_test_expected_type(self, dummy_dataset: sx.Dataset) -> None:
         effect_test, effects_placebo, sc_test, scs_placebo = sx.placebo_test(dummy_dataset)
-        assert isinstance(effect_test, float)
+        assert isinstance(effect_test, list)
         assert isinstance(effects_placebo, list)
         assert isinstance(sc_test, sx.SyntheticControlResult)
         assert isinstance(scs_placebo, list)

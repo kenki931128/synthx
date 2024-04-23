@@ -96,6 +96,8 @@ class Dataset:
         """
         if self.unit_column not in self.data.columns:
             raise ColumnNotFoundError(self.unit_column)
+        if len(self.intervention_units) == 0:
+            raise InvalidInterventionUnitError(f'at least, need to specify one intervention unit.')
         for intervention_unit in self.intervention_units:
             if intervention_unit not in self.data[self.unit_column].unique():
                 raise InvalidInterventionUnitError(f'{intervention_unit} does not exist.')

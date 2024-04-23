@@ -99,6 +99,18 @@ class TestDataset:
                 intervention_time=2,
             )
 
+    def test_validate_missing_intervention_unit(self, sample_data: pl.DataFrame) -> None:
+        with pytest.raises(InvalidInterventionUnitError):
+            sx.Dataset(
+                data=sample_data,
+                unit_column='unit',
+                time_column='time',
+                y_column='y',
+                covariate_columns=['cov1', 'cov2'],
+                intervention_units=[],
+                intervention_time=1,
+            )
+
     def test_validate_invalid_intervention_unit(self, sample_data: pl.DataFrame) -> None:
         with pytest.raises(InvalidInterventionUnitError):
             sx.Dataset(
