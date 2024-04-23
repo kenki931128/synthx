@@ -245,6 +245,7 @@ def sensitivity_check(
         if p_value <= p_value_target:
             r = uplift
         else:
+            tqdm.write(f'uplift: {uplift:.4f}, p value: {p_value}.', file=sys.stderr)
             l = uplift
 
     # even 1000% uplift cannot be captured.
@@ -253,39 +254,4 @@ def sensitivity_check(
     # singnificant difference without actual uplift
     if l == 1:
         return None
-
-    # just showing sensitivity purpose. Core process has been done already above.
-    sensitivity = uplift
-    for uplift in tqdm(np.linspace(1, sensitivity, 5)):
-        df_sensitivity = df.with_columns(
-            pl.when(
-                pl.col(dataset.unit_column).is_in(dataset.intervention_units)
-                & (pl.col(dataset.time_column) >= dataset.intervention_time)
-            )
-            .then(pl.col(dataset.y_column) * uplift)
-            .otherwise(pl.col(dataset.y_column))
-            .alias('y')
-        )
-
-        dataset_sensitivity = sx.Dataset(
-            df_sensitivity,
-            unit_column=dataset.unit_column,
-            time_column=dataset.time_column,
-            y_column=dataset.y_column,
-            covariate_columns=dataset.covariate_columns,
-            intervention_units=dataset.intervention_units,
-            intervention_time=dataset.intervention_time,
-        )
-
-        try:
-            sc = synthetic_control(dataset_sensitivity)
-        except NoFeasibleModelError:
-            tqdm.write(
-                f'sensitivity synthetic control optimization failed: uplift {uplift}.',
-                file=sys.stderr,
-            )
-            continue
-
-        p_value = sx.stats.calc_p_value(sc.estimate_effects(), effects_placebo)
-        tqdm.write(f'uplift: {uplift:.3f}, p value: {p_value}.', file=sys.stderr)
-    return sensitivity
+    return r
