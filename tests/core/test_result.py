@@ -67,15 +67,15 @@ class TestSyntheticControlResult:
 
     def test_y_test(self, dummy_result: sx.SyntheticControlResult) -> None:
         expected_y_test = np.array([1.0, 2.0, 3.0])
-        assert np.allclose(dummy_result.y_test, expected_y_test)
+        assert np.allclose(dummy_result.y_test(1), expected_y_test)
 
     def test_y_control(self, dummy_result: sx.SyntheticControlResult) -> None:
         expected_y_control = np.array([5.5, 6.5, 7.5])
-        assert np.allclose(dummy_result.y_control, expected_y_control)
+        assert np.allclose(dummy_result.y_control(1), expected_y_control)
 
     def test_estimate_effects(self, dummy_result: sx.SyntheticControlResult) -> None:
         expected_effect = 0
-        assert dummy_result.estimate_effects() == expected_effect
+        assert dummy_result.estimate_effects()[0] == expected_effect
 
     def test_plot(self, dummy_result: sx.SyntheticControlResult, mocker: MockerFixture) -> None:
         mocker.patch('matplotlib.pyplot.show')
