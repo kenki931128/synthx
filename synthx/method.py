@@ -43,62 +43,79 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
     df = dataset.data
 
     # condition
-    # TODO: add validation period
-    condition_pre_intervention_time = df[dataset.time_column] < dataset.intervention_time
-    condition_test_units = df[dataset.unit_column].is_in(dataset.intervention_units)
+    training_time = (
+        dataset.validation_time
+        if dataset.validation_time is not None
+        else dataset.intervention_time
+    )
+    condition_training_time = df[dataset.time_column] < training_time
     condition_control_units = ~df[dataset.unit_column].is_in(dataset.intervention_units)
 
-    # weights for variables
-    # TODO: use different weights for variables
+    # weights for variables and scale each variables
+    # weights of y_column : weights of others = 8 : 2.
+    # TODO: Update if there are better weights balance.
     variables = [dataset.y_column]
+    variable_weights: dict[str, float] = {}
     if dataset.covariate_columns is not None:
         variables += dataset.covariate_columns
-    variable_weights = {variable: 1 for variable in variables}
+        variable_weights = {
+            covariate: 2 / len(dataset.covariate_columns) for covariate in dataset.covariate_columns
+        }
+    variable_weights[dataset.y_column] = 8.0
+    for variable in variables:
+        df = df.with_columns(
+            ((pl.col(variable) - pl.col(variable).min()) / pl.col(variable).std()).alias(variable)
+        )
 
-    # TODO: multiple units intervention
-    if len(dataset.intervention_units) > 1:
-        raise NotImplementedError('multiple intervented units.')
+    # dataframe for control
+    df_control = df.filter(condition_training_time & condition_control_units)
 
-    # dataframe for test & control
-    df_test = df.filter(condition_pre_intervention_time & condition_test_units)
-    df_control = df.filter(condition_pre_intervention_time & condition_control_units)
+    control_unit_weights: list[np.ndarray] = []
+    for intervention_unit in dataset.intervention_units:
+        condition_test_unit = df[dataset.unit_column] == intervention_unit
+        df_test = df.filter(condition_training_time & condition_test_unit)
 
-    # optimize unit weights
-    def objective(unit_weights: np.ndarray) -> float:
-        diff = 0
-        for variable in variables:
-            df_control_pivoted = df_control.pivot(
-                index=dataset.time_column, columns=dataset.unit_column, values=variable
-            ).drop(dataset.time_column)
-            arr_control_pivoted = df_control_pivoted.to_numpy()
-            arr_test = df_test[variable].to_numpy()
-            variable_weight = variable_weights[variable]
-            diff += np.sum(
-                variable_weight
-                * (arr_test - np.sum(arr_control_pivoted * unit_weights, axis=1)) ** 2
+        # optimize unit weights
+        def objective(unit_weights: np.ndarray) -> float:
+            diff = 0
+            for variable in variables:
+                df_control_pivoted = df_control.pivot(
+                    index=dataset.time_column, columns=dataset.unit_column, values=variable
+                ).drop(dataset.time_column)
+                arr_control_pivoted = df_control_pivoted.to_numpy()
+                arr_test = df_test[variable].to_numpy()
+                variable_weight = variable_weights[variable]
+                diff += np.sum(
+                    variable_weight
+                    * (arr_test - np.sum(arr_control_pivoted * unit_weights, axis=1)) ** 2
+                )
+            return diff
+
+        control_units = df_control[dataset.unit_column].unique().to_list()
+        initial_unit_weights = np.ones(len(control_units)) / len(control_units)
+        bounds = [(0, 1)] * len(control_units)
+        # The optimization of unit weights is performed using the 'minimize' function from scipy.
+        solution = scipy.optimize.minimize(
+            objective,
+            initial_unit_weights,
+            bounds=bounds,
+            constraints={'type': 'eq', 'fun': lambda w: np.sum(w) - 1},
+        )
+
+        if not solution.success:
+            raise NoFeasibleModelError(
+                f'synthetic control optimization failed: test unit {intervention_unit}'
             )
-        return diff
+        control_unit_weights.append(solution.x)
 
-    control_units = df_control[dataset.unit_column].unique().to_list()
-    initial_unit_weights = np.ones(len(control_units)) / len(control_units)
-    bounds = [(0, 1)] * len(control_units)
-    # The optimization of unit weights is performed using the 'minimize' function from scipy.
-    solution = scipy.optimize.minimize(
-        objective,
-        initial_unit_weights,
-        bounds=bounds,
-        constraints={'type': 'eq', 'fun': lambda w: np.sum(w) - 1},
+    return sx.SyntheticControlResult(
+        dataset=dataset, control_unit_weights=np.asarray(control_unit_weights)
     )
-
-    if not solution.success:
-        raise NoFeasibleModelError('synthetic control optimization failed.')
-
-    return sx.SyntheticControlResult(dataset=dataset, control_unit_weights=solution.x)
 
 
 def placebo_test(
     dataset: sx.Dataset, n_jobs: int = -1
-) -> tuple[float, list[float], sx.SyntheticControlResult, list[sx.SyntheticControlResult]]:
+) -> tuple[list[float], list[float], sx.SyntheticControlResult, list[sx.SyntheticControlResult]]:
     """Perform a placebo test to assess the significance of the intervention effect.
 
     This function applies the synthetic control method to the test area and each control area
@@ -137,14 +154,14 @@ def placebo_test(
 
     def process_placebo(
         test_unit_placebo: sx.Dataset,
-    ) -> Optional[tuple[float, sx.SyntheticControlResult]]:
+    ) -> Optional[tuple[list[float], sx.SyntheticControlResult]]:
         """Apply synthetic control method to a single placebo unit and estimate the effect.
 
         Args:
             test_unit_placebo (sx.Dataset): The placebo unit to be used as the test unit.
 
         Returns:
-            tuple[float, sx.SyntheticControlResult] or None: If the synthetic control optimization
+            tuple[list[float], sx.SyntheticControlResult] or None: If the synthetic control optimization
                 is successful, returns a tuple containing the following elements:
                 - effect_placebo (float): The estimated placebo effect for the given control unit.
                 - sc_placebo (sx.SyntheticControlResult): The synthetic control result for placebo.
@@ -169,6 +186,7 @@ def placebo_test(
             covariate_columns=dataset.covariate_columns,
             intervention_units=test_unit_placebo,
             intervention_time=dataset.intervention_time,
+            validation_time=dataset.validation_time,
         )
         try:
             sc_placebo = synthetic_control(dataset_placebo)
@@ -181,7 +199,7 @@ def placebo_test(
             )
             return None
 
-    results = Parallel(n_jobs=-1)(
+    results = Parallel(n_jobs=n_jobs)(
         delayed(process_placebo)(test_unit_placebo) for test_unit_placebo in tqdm(control_units)
     )
 
@@ -190,7 +208,7 @@ def placebo_test(
     for result in results:
         if result is not None:
             effect_placebo, sc_placebo = result
-            effects_placebo.append(effect_placebo)
+            effects_placebo.append(effect_placebo[0])
             scs_placebo.append(sc_placebo)
 
     return effect_test, effects_placebo, sc_test, scs_placebo
@@ -222,7 +240,7 @@ def sensitivity_check(
             )
             .then(pl.col(dataset.y_column) * uplift)
             .otherwise(pl.col(dataset.y_column))
-            .alias('y')
+            .alias(dataset.y_column)
         )
 
         dataset_sensitivity = sx.Dataset(
@@ -233,6 +251,7 @@ def sensitivity_check(
             covariate_columns=dataset.covariate_columns,
             intervention_units=dataset.intervention_units,
             intervention_time=dataset.intervention_time,
+            validation_time=dataset.validation_time,
         )
 
         try:

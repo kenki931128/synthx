@@ -125,7 +125,7 @@ You can estimate the causal effect of the intervention using the `estimate_effec
 
 ```python
 >>> sc.estimate_effects()
-0.8398940970771678
+[0.8398940970771678]
 ```
 
 ### Placebo Test
