@@ -211,7 +211,10 @@ def sensitivity_check(
     """
     df = dataset.data
 
-    for uplift in tqdm(np.arange(1, 3, 0.01)):
+    l, r = 1.0, 10.0
+    while r - l > 0.001:
+        uplift = (l + r) / 2
+
         df_sensitivity = df.with_columns(
             pl.when(
                 pl.col(dataset.unit_column).is_in(dataset.intervention_units)
@@ -235,15 +238,20 @@ def sensitivity_check(
         try:
             sc = synthetic_control(dataset_sensitivity)
         except NoFeasibleModelError:
-            tqdm.write(
-                f'sensitivity synthetic control optimization failed: uplift {uplift}.',
-                file=sys.stderr,
-            )
+            r = uplift  # highly likely uplift was too big. TODO: think better algorithm.
             continue
 
         p_value = sx.stats.calc_p_value(sc.estimate_effects(), effects_placebo)
-        tqdm.write(f'uplift: {uplift:.2f}, p value: {p_value}.', file=sys.stderr)
         if p_value <= p_value_target:
-            return uplift
+            r = uplift
+        else:
+            tqdm.write(f'uplift: {uplift:.4f}, p value: {p_value}.', file=sys.stderr)
+            l = uplift
 
-    return None
+    # even 1000% uplift cannot be captured.
+    if r == 10:
+        return None
+    # singnificant difference without actual uplift
+    if l == 1:
+        return None
+    return r
