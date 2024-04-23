@@ -211,7 +211,52 @@ def sensitivity_check(
     """
     df = dataset.data
 
-    for uplift in tqdm(np.arange(1, 3, 0.01)):
+    l, r = 1.0, 10.0
+    while r - l > 0.001:
+        uplift = (l + r) / 2
+
+        df_sensitivity = df.with_columns(
+            pl.when(
+                pl.col(dataset.unit_column).is_in(dataset.intervention_units)
+                & (pl.col(dataset.time_column) >= dataset.intervention_time)
+            )
+            .then(pl.col(dataset.y_column) * uplift)
+            .otherwise(pl.col(dataset.y_column))
+            .alias('y')
+        )
+
+        dataset_sensitivity = sx.Dataset(
+            df_sensitivity,
+            unit_column=dataset.unit_column,
+            time_column=dataset.time_column,
+            y_column=dataset.y_column,
+            covariate_columns=dataset.covariate_columns,
+            intervention_units=dataset.intervention_units,
+            intervention_time=dataset.intervention_time,
+        )
+
+        try:
+            sc = synthetic_control(dataset_sensitivity)
+        except NoFeasibleModelError:
+            r = uplift  # highly likely uplift was too big. TODO: think better algorithm.
+            continue
+
+        p_value = sx.stats.calc_p_value(sc.estimate_effects(), effects_placebo)
+        if p_value <= p_value_target:
+            r = uplift
+        else:
+            l = uplift
+
+    # even 1000% uplift cannot be captured.
+    if r == 10:
+        return None
+    # singnificant difference without actual uplift
+    if l == 1:
+        return None
+
+    # just showing sensitivity purpose. Core process has been done already above.
+    sensitivity = uplift
+    for uplift in tqdm(np.linspace(1, sensitivity, 5)):
         df_sensitivity = df.with_columns(
             pl.when(
                 pl.col(dataset.unit_column).is_in(dataset.intervention_units)
@@ -242,8 +287,5 @@ def sensitivity_check(
             continue
 
         p_value = sx.stats.calc_p_value(sc.estimate_effects(), effects_placebo)
-        tqdm.write(f'uplift: {uplift:.2f}, p value: {p_value}.', file=sys.stderr)
-        if p_value <= p_value_target:
-            return uplift
-
-    return None
+        tqdm.write(f'uplift: {uplift:.3f}, p value: {p_value}.', file=sys.stderr)
+    return sensitivity
