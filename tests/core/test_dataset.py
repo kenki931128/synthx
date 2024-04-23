@@ -59,6 +59,19 @@ class TestDataset:
         )
         assert dataset.intervention_units == [1]
 
+    def test_init_with_validation_time(self, sample_data: pl.DataFrame) -> None:
+        dataset = sx.Dataset(
+            data=sample_data,
+            unit_column='unit',
+            time_column='time',
+            y_column='y',
+            covariate_columns=['cov1', 'cov2'],
+            intervention_units=1,
+            intervention_time=3,
+            validation_time=2,
+        )
+        assert dataset.validation_time == 2
+
     def test_plot(self, sample_data: pl.DataFrame, mocker: MockerFixture) -> None:
         dataset = sx.Dataset(
             data=sample_data,
@@ -158,6 +171,21 @@ class TestDataset:
                 covariate_columns=['cov1', 'cov2'],
                 intervention_units=[1],
                 intervention_time=4,
+            )
+
+    def test_validate_invalid_intervention_time_vs_validation_time(
+        self, sample_data: pl.DataFrame
+    ) -> None:
+        with pytest.raises(InvalidInterventionTimeError):
+            sx.Dataset(
+                data=sample_data,
+                unit_column='unit',
+                time_column='time',
+                y_column='y',
+                covariate_columns=['cov1', 'cov2'],
+                intervention_units=[1],
+                intervention_time=4,
+                validation_time=5,
             )
 
     def test_validate_missing_y_column(self, sample_data: pl.DataFrame) -> None:
