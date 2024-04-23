@@ -48,12 +48,21 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
     condition_test_units = df[dataset.unit_column].is_in(dataset.intervention_units)
     condition_control_units = ~df[dataset.unit_column].is_in(dataset.intervention_units)
 
-    # weights for variables
-    # TODO: use different weights for variables
+    # weights for variables and scale each variables
+    # weights of y_column : weights of others = 8 : 2.
+    # TODO: Update if there are better weights balance.
     variables = [dataset.y_column]
+    variable_weights: dict[str, float] = {}
     if dataset.covariate_columns is not None:
         variables += dataset.covariate_columns
-    variable_weights = {variable: 1 for variable in variables}
+        variable_weights = {
+            covariate: 2 / len(dataset.covariate_columns) for covariate in dataset.covariate_columns
+        }
+    variable_weights[dataset.y_column] = 8.0
+    for variable in variables:
+        df = df.with_columns(
+            ((pl.col(variable) - pl.col(variable).min()) / pl.col(variable).std()).alias(variable)
+        )
 
     # TODO: multiple units intervention
     if len(dataset.intervention_units) > 1:
