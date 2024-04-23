@@ -103,9 +103,14 @@ class SyntheticControlResult:
         Returns:
             list[float]: The estimated effect of the intervention.
         """
-        # dataset before intervention
+        # dataset in the training period
+        training_time = (
+            self.dataset.validation_time
+            if self.dataset.validation_time is not None
+            else self.dataset.intervention_time
+        )
         pre_df = self.dataset.data.filter(
-            self.dataset.data[self.dataset.time_column] < self.dataset.intervention_time
+            self.dataset.data[self.dataset.time_column] < training_time
         )
         pre_result = SyntheticControlResult(
             dataset=sx.Dataset(
@@ -159,6 +164,13 @@ class SyntheticControlResult:
         for i, intervention_unit in enumerate(self.dataset.intervention_units):
             axs[i].plot(self.x_time, self.y_test(intervention_unit), label='Test')
             axs[i].plot(self.x_time, self.y_control(intervention_unit), label='Control')
+            if self.dataset.validation_time is not None:
+                axs[i].axvline(
+                    self.dataset.validation_time,
+                    color='orange',
+                    linestyle='--',
+                    label='Validation Time',
+                )
             axs[i].axvline(
                 self.dataset.intervention_time,
                 color='red',

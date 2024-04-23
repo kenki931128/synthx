@@ -43,8 +43,12 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
     df = dataset.data
 
     # condition
-    # TODO: add validation period
-    condition_pre_intervention_time = df[dataset.time_column] < dataset.intervention_time
+    training_time = (
+        dataset.validation_time
+        if dataset.validation_time is not None
+        else dataset.intervention_time
+    )
+    condition_training_time = df[dataset.time_column] < training_time
     condition_control_units = ~df[dataset.unit_column].is_in(dataset.intervention_units)
 
     # weights for variables and scale each variables
@@ -64,12 +68,12 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
         )
 
     # dataframe for control
-    df_control = df.filter(condition_pre_intervention_time & condition_control_units)
+    df_control = df.filter(condition_training_time & condition_control_units)
 
     control_unit_weights: list[np.ndarray] = []
     for intervention_unit in dataset.intervention_units:
         condition_test_unit = df[dataset.unit_column] == intervention_unit
-        df_test = df.filter(condition_pre_intervention_time & condition_test_unit)
+        df_test = df.filter(condition_training_time & condition_test_unit)
 
         # optimize unit weights
         def objective(unit_weights: np.ndarray) -> float:
@@ -182,6 +186,7 @@ def placebo_test(
             covariate_columns=dataset.covariate_columns,
             intervention_units=test_unit_placebo,
             intervention_time=dataset.intervention_time,
+            validation_time=dataset.validation_time,
         )
         try:
             sc_placebo = synthetic_control(dataset_placebo)
@@ -246,6 +251,7 @@ def sensitivity_check(
             covariate_columns=dataset.covariate_columns,
             intervention_units=dataset.intervention_units,
             intervention_time=dataset.intervention_time,
+            validation_time=dataset.validation_time,
         )
 
         try:
