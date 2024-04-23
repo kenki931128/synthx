@@ -181,7 +181,7 @@ def placebo_test(
             )
             return None
 
-    results = Parallel(n_jobs=-1)(
+    results = Parallel(n_jobs=n_jobs)(
         delayed(process_placebo)(test_unit_placebo) for test_unit_placebo in tqdm(control_units)
     )
 
@@ -222,7 +222,7 @@ def sensitivity_check(
             )
             .then(pl.col(dataset.y_column) * uplift)
             .otherwise(pl.col(dataset.y_column))
-            .alias('y')
+            .alias(dataset.y_column)
         )
 
         dataset_sensitivity = sx.Dataset(
