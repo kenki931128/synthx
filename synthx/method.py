@@ -30,14 +30,8 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
         NotImplementedError: If there are multiple units that received the intervention.
         NoFeasibleModelError: If the optimization of unit weights fails to find a feasible solution.
 
-    Note:
-        - The function currently supports only a single unit that received the intervention.
-        - The weights for variables (y and covariates) are currently set to 1 for all variables.
-
     TODO:
-        - Add validation period for evaluating the performance of the synthetic control.
         - Allow different weights for variables based on their importance or relevance.
-        - Support multiple units that received the intervention. (also need to update result class)
     """
 
     df = dataset.data
@@ -127,10 +121,10 @@ def placebo_test(
 
     Returns:
         tuple: A tuple containing the following elements:
-            - effect_test (float): The estimated effect of the intervention in the test area.
-            - effects_placebo (List[float]): The estimated placebo effects for each control area.
+            - effects_test (list[float]): The estimated effect of the intervention in the test area.
+            - effects_placebo (list[float]): The estimated placebo effects for each control area.
             - sc_test (sx.SyntheticControlResult): The synthetic control result for the test area.
-            - scs_placebo (List[sx.SyntheticControlResult]): The synthetic control results
+            - scs_placebo (list[sx.SyntheticControlResult]): The synthetic control results
                 for each control area.
     """
     # placebo effect in test area
@@ -138,7 +132,7 @@ def placebo_test(
         sc_test = synthetic_control(dataset)
     except NoFeasibleModelError:
         raise NoFeasibleModelError('synthetic control optimization failed for test units.')
-    effect_test = sc_test.estimate_effects()
+    effects_test = sc_test.estimate_effects()
 
     # placebo effects in control areas
     effects_placebo: list[float] = []
@@ -211,7 +205,7 @@ def placebo_test(
             effects_placebo.append(effect_placebo[0])
             scs_placebo.append(sc_placebo)
 
-    return effect_test, effects_placebo, sc_test, scs_placebo
+    return effects_test, effects_placebo, sc_test, scs_placebo
 
 
 def sensitivity_check(
@@ -230,7 +224,9 @@ def sensitivity_check(
     df = dataset.data
 
     l, r = 1.0, 10.0
+    progress_bar = tqdm()
     while r - l > 0.001:
+        progress_bar.update(1)
         uplift = (l + r) / 2
 
         df_sensitivity = df.with_columns(
@@ -267,10 +263,7 @@ def sensitivity_check(
             tqdm.write(f'uplift: {uplift:.4f}, p value: {p_value}.', file=sys.stderr)
             l = uplift
 
-    # even 1000% uplift cannot be captured.
-    if r == 10:
-        return None
-    # singnificant difference without actual uplift
-    if l == 1:
+    # even 1000% uplift cannot be captured / singnificant difference without actual uplift.
+    if r == 10 or l == 1:
         return None
     return r
