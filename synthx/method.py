@@ -209,7 +209,11 @@ def placebo_test(
 
 
 def sensitivity_check(
-    dataset: sx.Dataset, effects_placebo: list[float], p_value_target: float = 0.03
+    dataset: sx.Dataset,
+    effects_placebo: list[float],
+    p_value_target: float = 0.03,
+    l: float = 1.0,
+    r: float = 10.0,
 ) -> Optional[float]:
     """Perform a sensitivity check on the synthetic control results.
 
@@ -217,17 +221,23 @@ def sensitivity_check(
         dataset (sx.Dataset): The dataset for the synthetic control analysis.
         effects_placebo (list[float]): The list of placebo effects estimated.
         p_value_target (float, optional): The target p-value threshold for statistical significance.
+        l (float), r (float): the range of uplift. If you have assumption, narrow down to be faster.
 
     Returns:
         float or None: The uplift which becomes statistically significant.
     """
     df = dataset.data
 
-    l, r = 1.0, 10.0
+    if l < 1.0:
+        raise ValueError('l should be larger than or equal to 1.')
+    if r <= l:
+        raise ValueError('r should be larger than l.')
+
     progress_bar = tqdm()
     while r - l > 0.001:
-        progress_bar.update(1)
         uplift = (l + r) / 2
+        progress_bar.update(1)
+        progress_bar.set_postfix(uplift=f'{uplift:.4f}')
 
         df_sensitivity = df.with_columns(
             pl.when(
