@@ -133,13 +133,13 @@ You can estimate the causal effect of the intervention using the `estimate_effec
 Perform a Placebo Test to assess the statistical significance of the estimated treatment effect using the `placebo_test()` function.
 
 ```python
-effect_test, effects_placebo, sc_test, scs_placebo = sx.placebo_test(dataset)
+effects_test, effects_placebo, sc_test, scs_placebo = sx.placebo_test(dataset)
 ```
 
 Calculate the p-value of the estimated treatment effect using the `calc_p_value()` function from the `stats` module.
 
 ```python
->>> sx.stats.calc_p_value(effect_test, effects_placebo)
+>>> sx.stats.calc_p_value(effects_test, effects_placebo)
 0.03228841882463891
 ```
 
@@ -148,7 +148,7 @@ Calculate the p-value of the estimated treatment effect using the `calc_p_value(
 Perform a sensitivity check on the synthetic control results using the `sensitivity_check()` function.
 
 ```python
->>> effect_test, effects_placebo, sc_test, scs_placebo = sx.placebo_test(dataset)
+>>> effects_test, effects_placebo, sc_test, scs_placebo = sx.placebo_test(dataset)
 >>> sensitivity_check(dataset, effects_placebo)
 1.05
 ```
