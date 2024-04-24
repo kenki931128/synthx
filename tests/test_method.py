@@ -81,8 +81,8 @@ class TestPlaceboTest:
         )
 
     def test_placebo_test_expected_type(self, dummy_dataset: sx.Dataset) -> None:
-        effect_test, effects_placebo, sc_test, scs_placebo = sx.placebo_test(dummy_dataset)
-        assert isinstance(effect_test, list)
+        effects_test, effects_placebo, sc_test, scs_placebo = sx.placebo_test(dummy_dataset)
+        assert isinstance(effects_test, list)
         assert isinstance(effects_placebo, list)
         assert isinstance(sc_test, sx.SyntheticControlResult)
         assert isinstance(scs_placebo, list)
