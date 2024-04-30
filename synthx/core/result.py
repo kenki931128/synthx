@@ -150,6 +150,57 @@ class SyntheticControlResult:
             for intervention_unit in self.dataset.intervention_units
         ]
 
+    def validation_differences(self) -> Optional[list[float]]:
+        """Calculate the difference between training and validation.
+
+        Returns:
+            Optional[list[float]]: The difference between training and validation.
+        """
+        if self.dataset.validation_time is None:
+            return None
+
+        # dataset in the training period
+        pre_df = self.dataset.data.filter(
+            self.dataset.data[self.dataset.time_column] < self.dataset.validation_time
+        )
+        pre_result = SyntheticControlResult(
+            dataset=sx.Dataset(
+                pre_df,
+                unit_column=self.dataset.unit_column,
+                time_column=self.dataset.time_column,
+                y_column=self.dataset.y_column,
+                covariate_columns=self.dataset.covariate_columns,
+                intervention_units=self.dataset.intervention_units,
+                intervention_time=0,
+            ),
+            control_unit_weights=self.control_unit_weights,
+        )
+        # dataset in the validation period
+        val_df = self.dataset.data.filter(
+            (self.dataset.data[self.dataset.time_column] >= self.dataset.validation_time)
+            & (self.dataset.data[self.dataset.time_column] < self.dataset.intervention_time)
+        )
+        val_result = SyntheticControlResult(
+            dataset=sx.Dataset(
+                val_df,
+                unit_column=self.dataset.unit_column,
+                time_column=self.dataset.time_column,
+                y_column=self.dataset.y_column,
+                covariate_columns=self.dataset.covariate_columns,
+                intervention_units=self.dataset.intervention_units,
+                intervention_time=0,
+            ),
+            control_unit_weights=self.control_unit_weights,
+        )
+
+        return [
+            np.mean(val_result.y_test(intervention_unit) - val_result.y_control(intervention_unit))
+            - np.mean(
+                pre_result.y_test(intervention_unit) - pre_result.y_control(intervention_unit)
+            )
+            for intervention_unit in self.dataset.intervention_units
+        ]
+
     def plot(self, save: Optional[str] = None) -> None:
         """Plot the target variable over time for both test and control units.
 

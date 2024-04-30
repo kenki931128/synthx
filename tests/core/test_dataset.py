@@ -100,6 +100,49 @@ class TestDataset:
         dataset.plot(save='test.png')
         assert True  # Assert that the method runs without errors
 
+    def test_filtered_by_lift_and_moe(self, sample_data: pl.DataFrame) -> None:
+        dataset = sx.Dataset(
+            data=sample_data,
+            unit_column='unit',
+            time_column='time',
+            y_column='y',
+            covariate_columns=['cov1', 'cov2'],
+            intervention_units=[1],
+            intervention_time=2,
+        )
+        filtered_dataset = dataset.filtered_by_lift_and_moe(lift_threshold=2.0, moe_threshold=1.0)
+        assert filtered_dataset.data.shape == (6, 5)  # Assuming no units are filtered out
+
+    def test_filtered_by_lift_and_moe_invalid_lift_threshold(
+        self, sample_data: pl.DataFrame
+    ) -> None:
+        dataset = sx.Dataset(
+            data=sample_data,
+            unit_column='unit',
+            time_column='time',
+            y_column='y',
+            covariate_columns=['cov1', 'cov2'],
+            intervention_units=[1],
+            intervention_time=2,
+        )
+        with pytest.raises(ValueError):
+            dataset.filtered_by_lift_and_moe(lift_threshold=-1.0)
+
+    def test_filtered_by_lift_and_moe_invalid_moe_threshold(
+        self, sample_data: pl.DataFrame
+    ) -> None:
+        dataset = sx.Dataset(
+            data=sample_data,
+            unit_column='unit',
+            time_column='time',
+            y_column='y',
+            covariate_columns=['cov1', 'cov2'],
+            intervention_units=[1],
+            intervention_time=2,
+        )
+        with pytest.raises(ValueError):
+            dataset.filtered_by_lift_and_moe(moe_threshold=0.0)
+
     def test_validate_missing_unit_column(self, sample_data: pl.DataFrame) -> None:
         with pytest.raises(ColumnNotFoundError):
             sx.Dataset(
