@@ -1,10 +1,12 @@
 """Class for dataset."""
 
+import sys
 from datetime import date
 from typing import Any, Optional, Union
 
 import matplotlib.pyplot as plt
 import polars as pl
+from tqdm import tqdm
 
 from synthx.errors import (
     ColumnNotFoundError,
@@ -13,6 +15,7 @@ from synthx.errors import (
     InvalidInterventionTimeError,
     InvalidInterventionUnitError,
     InvalidNormalizationError,
+    StrictFilteringError,
 )
 from synthx.stats import norm
 
@@ -92,6 +95,95 @@ class Dataset:
             plt.savefig(save)
         else:
             plt.show()
+
+    def filtered_by_lift_and_moe(
+        self,
+        *,
+        lift_threshold: Optional[float] = None,
+        moe_threshold: Optional[float] = None,
+        write_progress: bool = False,
+    ) -> 'Dataset':
+        """Filter the dataset based on lift and margin of error thresholds.
+
+        Args:
+            lift_threshold (Optional[float]): The threshold for the lift. Units with lift values
+                outside the range [1 / lift_threshold, lift_threshold] will be excluded.
+                If None, no lift-based filtering is performed.
+            moe_threshold (Optional[float]): The threshold for the margin of error. Units with
+                margin of error values outside the range [-moe_threshold, moe_threshold] will be excluded.
+                If None, no margin of error-based filtering is performed.
+            write_progress (bool): Whether to write progress information to stderr.
+
+        Returns:
+            Dataset: A new Dataset object containing the filtered data.
+
+        Raises:
+            ValueError: If lift_threshold or moe_threshold is not positive.
+            StrictFilteringError: If all units or all intervention units are filtered out.
+                Consider loosening the thresholds in this case.
+        """
+        if lift_threshold is not None and lift_threshold <= 0:
+            raise ValueError('lift_threshold should be positive.')
+        if moe_threshold is not None and moe_threshold <= 0:
+            raise ValueError('moe_threshold should be positive.')
+
+        df = self.data
+        units_excluded = []
+
+        for unit in tqdm(df[self.unit_column].unique()):
+            df_unit = df.filter(pl.col(self.unit_column) == unit)
+
+            mean = df_unit[self.y_column].mean()
+            std = df_unit[self.y_column].std()
+
+            lift = df_unit[self.y_column] / mean
+            moe = (df_unit[self.y_column] - mean) / std
+
+            str_range = f'lift: {lift.min():.3f} ~ {lift.max():.3f}, moe: {moe.min():.3f} ~ {moe.max():.3f}'  # type: ignore
+            if lift_threshold is not None and (
+                (lift < 1 / lift_threshold).any() or (lift_threshold < lift).any()
+            ):
+                if write_progress:
+                    tqdm.write(
+                        f'unit {unit} out of lift threshold. {str_range}',
+                        file=sys.stderr,
+                    )
+                units_excluded.append(unit)
+            elif moe_threshold is not None and (
+                (moe < -moe_threshold).any() or (moe_threshold < moe).any()
+            ):
+                if write_progress:
+                    tqdm.write(
+                        f'unit {unit} out of moe threshold. {str_range}',
+                        file=sys.stderr,
+                    )
+                units_excluded.append(unit)
+            elif write_progress:
+                tqdm.write(
+                    f'unit {unit} kept. {str_range}',
+                    file=sys.stderr,
+                )
+
+        df = df.filter(~pl.col(self.unit_column).is_in(units_excluded))
+        if len(df) == 0:
+            raise StrictFilteringError('all units filterred out. Consider loosing thresholds.')
+        intervention_units = [u for u in self.intervention_units if u not in units_excluded]
+        if len(intervention_units) == 0:
+            raise StrictFilteringError(
+                'all intervention units filterred out. Consider loosing thresholds.'
+            )
+
+        return Dataset(
+            df,
+            unit_column=self.unit_column,
+            time_column=self.time_column,
+            y_column=self.y_column,
+            covariate_columns=self.covariate_columns,
+            intervention_units=intervention_units,
+            intervention_time=self.intervention_time,
+            validation_time=self.validation_time,
+            norm=self.norm,
+        )
 
     def __validate(self) -> None:
         """Validate the dataset and raise appropriate errors if any issues are found.
