@@ -29,10 +29,38 @@ class TestSyntheticControlResult:
         )
 
     @pytest.fixture
+    def dummy_dataset_val(self) -> sx.Dataset:
+        data = pl.DataFrame(
+            {
+                'unit': [1, 1, 1, 2, 2, 2, 3, 3, 3],
+                'time': [1, 2, 3, 1, 2, 3, 1, 2, 3],
+                'y': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+            }
+        )
+        return sx.Dataset(
+            data=data,
+            unit_column='unit',
+            time_column='time',
+            y_column='y',
+            covariate_columns=[],
+            intervention_units=[1],
+            intervention_time=3,
+            validation_time=2,
+        )
+
+    @pytest.fixture
     def dummy_result(self, dummy_dataset: sx.Dataset) -> sx.SyntheticControlResult:
         control_unit_weights = np.array([0.5, 0.5])
         return sx.SyntheticControlResult(
             dataset=dummy_dataset,
+            control_unit_weights=control_unit_weights,
+        )
+
+    @pytest.fixture
+    def dummy_result_val(self, dummy_dataset_val: sx.Dataset) -> sx.SyntheticControlResult:
+        control_unit_weights = np.array([0.5, 0.5])
+        return sx.SyntheticControlResult(
+            dataset=dummy_dataset_val,
             control_unit_weights=control_unit_weights,
         )
 
@@ -76,6 +104,19 @@ class TestSyntheticControlResult:
     def test_estimate_effects(self, dummy_result: sx.SyntheticControlResult) -> None:
         expected_effect = 0
         assert dummy_result.estimate_effects()[0] == expected_effect
+
+    def test_validation_differences_no_validation_time(
+        self, dummy_result: sx.SyntheticControlResult
+    ) -> None:
+        assert dummy_result.validation_differences() is None
+
+    def test_validation_differences_with_validation_time(
+        self, dummy_result_val: sx.SyntheticControlResult
+    ) -> None:
+        expected_difference = 0
+        val_result = dummy_result_val.validation_differences()
+        assert val_result is not None
+        assert val_result[0] == expected_difference
 
     def test_plot(self, dummy_result: sx.SyntheticControlResult, mocker: MockerFixture) -> None:
         mocker.patch('matplotlib.pyplot.show')
