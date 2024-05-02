@@ -214,6 +214,7 @@ def sensitivity_check(
     p_value_target: float = 0.03,
     l: float = 1.0,
     r: float = 10.0,
+    write_progress: bool = False,
 ) -> Optional[float]:
     """Perform a sensitivity check on the synthetic control results.
 
@@ -222,6 +223,7 @@ def sensitivity_check(
         effects_placebo (list[float]): The list of placebo effects estimated.
         p_value_target (float, optional): The target p-value threshold for statistical significance.
         l (float), r (float): the range of uplift. If you have assumption, narrow down to be faster.
+        write_progress (bool): Whether to write progress information to stderr.
 
     Returns:
         float or None: The uplift which becomes statistically significant.
@@ -270,7 +272,8 @@ def sensitivity_check(
         if p_value <= p_value_target:
             r = uplift
         else:
-            tqdm.write(f'uplift: {uplift:.4f}, p value: {p_value}.', file=sys.stderr)
+            if write_progress:
+                tqdm.write(f'uplift: {uplift:.4f}, p value: {p_value}.', file=sys.stderr)
             l = uplift
 
     # even 1000% uplift cannot be captured / singnificant difference without actual uplift.
