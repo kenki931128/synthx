@@ -64,19 +64,29 @@ class Dataset:
         self.__validate()
         self.__normalization()
 
-    def plot(self, units: Optional[list[str]] = None, save: Optional[str] = None) -> None:
+    def plot(
+        self,
+        units: Optional[list[str]] = None,
+        save: Optional[str] = None,
+        show_label: bool = False,
+    ) -> None:
         """Plot the dataset and display its characteristics.
 
         Args:
             units (Optional[list[str]]): only plot data of this variable if specified.
             save (Optional[str]): file path to save the plot. If None, the plot will be displayed.
+            show_label (bool): show label on the plot or not.
         """
         # Plot the target variable over time for each unit
         units = units if units is not None else self.data[self.unit_column].unique().to_list()
         plt.figure(figsize=(10, 6))
         for unit in units:
             unit_data = self.data.filter(pl.col(self.unit_column) == unit)
-            plt.plot(unit_data[self.time_column], unit_data[self.y_column], label=f'Unit {unit}')
+            plt.plot(
+                unit_data[self.time_column],
+                unit_data[self.y_column],
+                label=f'Unit {unit}' if show_label else None,
+            )
 
         # Add vertical line for validation time and intervention time
         if self.validation_time is not None:
