@@ -95,7 +95,12 @@ class SyntheticControlResult:
         control_unit_weight = self.control_unit_weights[
             self.dataset.intervention_units.index(intervention_unit)
         ]
-        return np.sum(arr_control_pivoted * control_unit_weight, axis=1)
+
+        # calculate the scale
+        y_test = self.y_test(intervention_unit)
+        y_control = np.sum(arr_control_pivoted * control_unit_weight, axis=1)
+        scale = np.sum(y_test * y_control) / np.sum(y_control * y_control)
+        return scale * y_control
 
     def estimate_effects(self) -> list[float]:
         """Estimate the effects of the intervention.
@@ -141,12 +146,15 @@ class SyntheticControlResult:
             control_unit_weights=self.control_unit_weights,
         )
         return [
-            np.mean(
-                post_result.y_test(intervention_unit) - post_result.y_control(intervention_unit)
+            (
+                np.mean(
+                    post_result.y_test(intervention_unit) - post_result.y_control(intervention_unit)
+                )
+                - np.mean(
+                    pre_result.y_test(intervention_unit) - pre_result.y_control(intervention_unit)
+                )
             )
-            - np.mean(
-                pre_result.y_test(intervention_unit) - pre_result.y_control(intervention_unit)
-            )
+            / np.mean(pre_result.y_test(intervention_unit))
             for intervention_unit in self.dataset.intervention_units
         ]
 
@@ -194,10 +202,15 @@ class SyntheticControlResult:
         )
 
         return [
-            np.mean(val_result.y_test(intervention_unit) - val_result.y_control(intervention_unit))
-            - np.mean(
-                pre_result.y_test(intervention_unit) - pre_result.y_control(intervention_unit)
+            (
+                np.mean(
+                    val_result.y_test(intervention_unit) - val_result.y_control(intervention_unit)
+                )
+                - np.mean(
+                    pre_result.y_test(intervention_unit) - pre_result.y_control(intervention_unit)
+                )
             )
+            / np.mean(pre_result.y_test(intervention_unit))
             for intervention_unit in self.dataset.intervention_units
         ]
 
