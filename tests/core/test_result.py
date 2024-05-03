@@ -15,7 +15,7 @@ class TestSyntheticControlResult:
             {
                 'unit': [1, 1, 1, 2, 2, 2, 3, 3, 3],
                 'time': [1, 2, 3, 1, 2, 3, 1, 2, 3],
-                'y': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+                'y': [1.0, 2.0, 3.0, 2.0, 4.0, 6.0, 3.0, 6.0, 9.0],
             }
         )
         return sx.Dataset(
@@ -34,7 +34,7 @@ class TestSyntheticControlResult:
             {
                 'unit': [1, 1, 1, 2, 2, 2, 3, 3, 3],
                 'time': [1, 2, 3, 1, 2, 3, 1, 2, 3],
-                'y': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+                'y': [1.0, 2.0, 3.0, 2.0, 4.0, 6.0, 3.0, 6.0, 9.0],
             }
         )
         return sx.Dataset(
@@ -88,7 +88,7 @@ class TestSyntheticControlResult:
             {
                 'unit': [2, 2, 2, 3, 3, 3],
                 'time': [1, 2, 3, 1, 2, 3],
-                'y': [4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
+                'y': [2.0, 4.0, 6.0, 3.0, 6.0, 9.0],
             }
         )
         assert dummy_result.df_control.equals(expected_df_control)
@@ -98,7 +98,7 @@ class TestSyntheticControlResult:
         assert np.allclose(dummy_result.y_test(1), expected_y_test)
 
     def test_y_control(self, dummy_result: sx.SyntheticControlResult) -> None:
-        expected_y_control = np.array([5.5, 6.5, 7.5])
+        expected_y_control = np.array([1.0, 2.0, 3.0])
         assert np.allclose(dummy_result.y_control(1), expected_y_control)
 
     def test_estimate_effects(self, dummy_result: sx.SyntheticControlResult) -> None:
