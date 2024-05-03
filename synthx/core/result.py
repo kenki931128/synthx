@@ -100,7 +100,6 @@ class SyntheticControlResult:
         ]
         y_control = np.sum(arr_control_pivoted * control_unit_weight, axis=1)
         scale = self.scales[self.dataset.intervention_units.index(intervention_unit)]
-        print(scale, y_control)
         return scale * y_control
 
     def estimate_effects(self) -> list[float]:
