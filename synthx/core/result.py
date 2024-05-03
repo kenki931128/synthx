@@ -17,15 +17,18 @@ class SyntheticControlResult:
         *,
         dataset: sx.Dataset,
         control_unit_weights: np.ndarray,
+        scales: np.ndarray,
     ) -> None:
         """Initialize SyntheticControlResult.
 
         Args:
             dataset (sx.Dataset): The dataset used for synthetic control analysis.
             control_unit_weights (np.ndarray): The weights of control units.
+            scales (np.ndarray): The weights to get both graph close.
         """
         self.dataset = dataset
         self.control_unit_weights = control_unit_weights
+        self.scales = scales
 
     @property
     def df_test(self) -> pl.DataFrame:
@@ -95,7 +98,10 @@ class SyntheticControlResult:
         control_unit_weight = self.control_unit_weights[
             self.dataset.intervention_units.index(intervention_unit)
         ]
-        return np.sum(arr_control_pivoted * control_unit_weight, axis=1)
+        y_control = np.sum(arr_control_pivoted * control_unit_weight, axis=1)
+        scale = self.scales[self.dataset.intervention_units.index(intervention_unit)]
+        print(scale, y_control)
+        return scale * y_control
 
     def estimate_effects(self) -> list[float]:
         """Estimate the effects of the intervention.
@@ -123,6 +129,7 @@ class SyntheticControlResult:
                 intervention_time=0,
             ),
             control_unit_weights=self.control_unit_weights,
+            scales=self.scales,
         )
         # dataset after intervention
         post_df = self.dataset.data.filter(
@@ -139,14 +146,18 @@ class SyntheticControlResult:
                 intervention_time=0,
             ),
             control_unit_weights=self.control_unit_weights,
+            scales=self.scales,
         )
         return [
-            np.mean(
-                post_result.y_test(intervention_unit) - post_result.y_control(intervention_unit)
+            (
+                np.mean(
+                    post_result.y_test(intervention_unit) - post_result.y_control(intervention_unit)
+                )
+                - np.mean(
+                    pre_result.y_test(intervention_unit) - pre_result.y_control(intervention_unit)
+                )
             )
-            - np.mean(
-                pre_result.y_test(intervention_unit) - pre_result.y_control(intervention_unit)
-            )
+            / np.mean(pre_result.y_test(intervention_unit))
             for intervention_unit in self.dataset.intervention_units
         ]
 
@@ -174,6 +185,7 @@ class SyntheticControlResult:
                 intervention_time=0,
             ),
             control_unit_weights=self.control_unit_weights,
+            scales=self.scales,
         )
         # dataset in the validation period
         val_df = self.dataset.data.filter(
@@ -191,13 +203,19 @@ class SyntheticControlResult:
                 intervention_time=0,
             ),
             control_unit_weights=self.control_unit_weights,
+            scales=self.scales,
         )
 
         return [
-            np.mean(val_result.y_test(intervention_unit) - val_result.y_control(intervention_unit))
-            - np.mean(
-                pre_result.y_test(intervention_unit) - pre_result.y_control(intervention_unit)
+            (
+                np.mean(
+                    val_result.y_test(intervention_unit) - val_result.y_control(intervention_unit)
+                )
+                - np.mean(
+                    pre_result.y_test(intervention_unit) - pre_result.y_control(intervention_unit)
+                )
             )
+            / np.mean(pre_result.y_test(intervention_unit))
             for intervention_unit in self.dataset.intervention_units
         ]
 
