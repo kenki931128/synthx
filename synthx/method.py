@@ -65,6 +65,7 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
     df_control = df.filter(condition_training_time & condition_control_units)
 
     control_unit_weights: list[np.ndarray] = []
+    scales: list[np.ndarray] = []
     for intervention_unit in dataset.intervention_units:
         condition_test_unit = df[dataset.unit_column] == intervention_unit
         df_test = df.filter(condition_training_time & condition_test_unit)
@@ -102,8 +103,19 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
             )
         control_unit_weights.append(solution.x)
 
+        # scale
+        y_test = df_test[dataset.y_column].to_numpy()
+        df_control_pivoted = df_control.pivot(
+            index=dataset.time_column, columns=dataset.unit_column, values=dataset.y_column
+        ).drop(dataset.time_column)
+        arr_control_pivoted = df_control_pivoted.to_numpy()
+        y_control = np.sum(arr_control_pivoted * solution.x, axis=1)
+        scales.append(np.sum(y_test * y_control) / np.sum(y_control * y_control))
+
     return sx.SyntheticControlResult(
-        dataset=dataset, control_unit_weights=np.asarray(control_unit_weights)
+        dataset=dataset,
+        control_unit_weights=np.asarray(control_unit_weights),
+        scales=np.asarray(scales),
     )
 
 
