@@ -50,25 +50,31 @@ class TestSyntheticControlResult:
 
     @pytest.fixture
     def dummy_result(self, dummy_dataset: sx.Dataset) -> sx.SyntheticControlResult:
-        control_unit_weights = np.array([0.5, 0.5])
+        control_unit_weights = np.array([[0.5, 0.5]])
+        scales = np.array([2 / 5])
         return sx.SyntheticControlResult(
             dataset=dummy_dataset,
             control_unit_weights=control_unit_weights,
+            scales=scales,
         )
 
     @pytest.fixture
     def dummy_result_val(self, dummy_dataset_val: sx.Dataset) -> sx.SyntheticControlResult:
-        control_unit_weights = np.array([0.5, 0.5])
+        control_unit_weights = np.array([[0.5, 0.5]])
+        scales = np.array([2 / 5])
         return sx.SyntheticControlResult(
             dataset=dummy_dataset_val,
             control_unit_weights=control_unit_weights,
+            scales=scales,
         )
 
     def test_init(self, dummy_dataset: sx.Dataset) -> None:
-        control_unit_weights = np.array([0.5, 0.5])
+        control_unit_weights = np.array([[0.5, 0.5]])
+        scales = np.array([2 / 5])
         result = sx.SyntheticControlResult(
             dataset=dummy_dataset,
             control_unit_weights=control_unit_weights,
+            scales=scales,
         )
         assert result.dataset == dummy_dataset
         assert np.allclose(result.control_unit_weights, control_unit_weights)
