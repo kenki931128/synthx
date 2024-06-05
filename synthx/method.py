@@ -64,21 +64,29 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
     # dataframe for control
     df_control = df.filter(condition_training_time & condition_control_units)
 
+    # pre-create variables for objective function
+    arrs_control_pivoted: dict[str, np.ndarray] = {}
+    for variable in variables:
+        df_control_pivoted = df_control.pivot(
+            index=dataset.time_column, columns=dataset.unit_column, values=variable
+        ).drop(dataset.time_column)
+        arrs_control_pivoted[variable] = df_control_pivoted.to_numpy()
+
     control_unit_weights: list[np.ndarray] = []
     scales: list[np.ndarray] = []
     for intervention_unit in dataset.intervention_units:
         condition_test_unit = df[dataset.unit_column] == intervention_unit
         df_test = df.filter(condition_training_time & condition_test_unit)
+        arrs_test: dict[str, np.ndarray] = {}
+        for variable in variables:
+            arrs_test[variable] = df_test[variable].to_numpy()
 
         # optimize unit weights
         def objective(unit_weights: np.ndarray) -> float:
             diff = 0
             for variable in variables:
-                df_control_pivoted = df_control.pivot(
-                    index=dataset.time_column, columns=dataset.unit_column, values=variable
-                ).drop(dataset.time_column)
-                arr_control_pivoted = df_control_pivoted.to_numpy()
-                arr_test = df_test[variable].to_numpy()
+                arr_control_pivoted = arrs_control_pivoted[variable]
+                arr_test = arrs_test[variable]
                 variable_weight = variable_weights[variable]
                 diff += np.sum(
                     variable_weight
