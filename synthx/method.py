@@ -103,6 +103,8 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
             initial_unit_weights,
             bounds=bounds,
             constraints={'type': 'eq', 'fun': lambda w: np.sum(w) - 1},
+            method='SLSQP',
+            options={'ftol': 1e-4},
         )
 
         if not solution.success:
