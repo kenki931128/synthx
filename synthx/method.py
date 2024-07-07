@@ -102,7 +102,10 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
             objective,
             initial_unit_weights,
             bounds=bounds,
-            constraints={'type': 'eq', 'fun': lambda w: np.sum(w) - 1},
+            constraints=[
+                {'type': 'ineq', 'fun': lambda w: np.sum(w) - 0.999},
+                {'type': 'ineq', 'fun': lambda w: 1.001 - np.sum(w)},
+            ],
             method='SLSQP',
             options={'ftol': 1e-4},
         )
@@ -237,6 +240,7 @@ def sensitivity_check(
     l: float = 1.0,
     r: float = 10.0,
     write_progress: bool = False,
+    equal_var: bool = True,
 ) -> Optional[float]:
     """Perform a sensitivity check on the synthetic control results.
 
@@ -246,6 +250,9 @@ def sensitivity_check(
         p_value_target (float, optional): The target p-value threshold for statistical significance.
         l (float), r (float): the range of uplift. If you have assumption, narrow down to be faster.
         write_progress (bool): Whether to write progress information to stderr.
+        equal_var (bool):
+            If True, perform a standard independent 2 sample test that assumes equal variances.
+            If False, perform Welch's t-test, which does not assume equal variance.
 
     Returns:
         float or None: The uplift which becomes statistically significant.
@@ -290,7 +297,7 @@ def sensitivity_check(
             r = uplift  # highly likely uplift was too big. TODO: think better algorithm.
             continue
 
-        p_value = sx.stats.calc_p_value(sc.estimate_effects(), effects_placebo)
+        p_value = sx.stats.calc_p_value(sc.estimate_effects(), effects_placebo, equal_var=equal_var)
         if p_value <= p_value_target:
             r = uplift
         else:
