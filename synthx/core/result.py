@@ -5,6 +5,7 @@ from typing import Any, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
+from scipy import stats
 
 import synthx as sx
 
@@ -217,6 +218,23 @@ class SyntheticControlResult:
             / np.mean(pre_result.y_test(intervention_unit))
             for intervention_unit in self.dataset.intervention_units
         ]
+
+    def paired_ttest(self) -> list[float]:
+        """Perform paired t-tests for each intervention unit.
+
+        This method compares y_test with the synthetic control (y_control)
+        for each intervention unit using a paired t-test.
+
+        Returns:
+            list[float]: A list of p-values from the paired t-tests, one for each intervention unit.
+        """
+        p_values: list[float] = []
+        for intervention_unit in self.dataset.intervention_units:
+            _, p_value = stats.ttest_rel(
+                self.y_test(intervention_unit), self.y_control(intervention_unit)
+            )
+            p_values.append(p_value)
+        return p_values
 
     def plot(self, save: Optional[str] = None) -> None:
         """Plot the target variable over time for both test and control units.
