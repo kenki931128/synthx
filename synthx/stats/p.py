@@ -8,6 +8,7 @@ from scipy import stats
 def calc_p_value(
     effects_test: Union[float, list[float]],
     effects_control: Union[float, list[float]],
+    equal_var: bool = True,
 ) -> float:
     """Calculate the p-value using the independent t-test.
 
@@ -19,6 +20,9 @@ def calc_p_value(
             Can be a single float value or a list of float values.
         effects_control (Union[float, list[float]]): The effect sizes of the control group.
             Can be a single float value or a list of float values.
+        equal_var (bool):
+            If True, perform a standard independent 2 sample test that assumes equal variances.
+            If False, perform Welch's t-test, which does not assume equal variance.
 
     Returns:
         float: The calculated p-value.
@@ -29,5 +33,5 @@ def calc_p_value(
         >>> calc_p_value(effects_test, effects_control)
         ...
     """
-    _, p_value = stats.ttest_ind(effects_test, effects_control)
+    _, p_value = stats.ttest_ind(effects_test, effects_control, equal_var=equal_var)
     return p_value
