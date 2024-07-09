@@ -8,7 +8,7 @@ from scipy.optimize import OptimizeResult
 
 import synthx as sx
 from synthx.errors import NoFeasibleModelError
-from synthx.method import sensitivity_check, synthetic_control
+from synthx.method import placebo_sensitivity_check, synthetic_control, ttest_sensitivity_check
 
 
 class TestSyntheticControl:
@@ -123,7 +123,7 @@ class TestSensitivityCheck:
             intervention_time=2,
         )
 
-    def test_sensitivity_check_no_uplift_found(
+    def test_placebo_sensitivity_check_no_uplift_found(
         self, dummy_dataset: sx.Dataset, mocker: MockerFixture
     ) -> None:
         mocker.patch(
@@ -132,24 +132,24 @@ class TestSensitivityCheck:
         )
         mocker.patch('synthx.stats.calc_p_value', return_value=0.1)
 
-        uplift = sensitivity_check(
+        uplift = placebo_sensitivity_check(
             dummy_dataset, effects_placebo=[1.0, 1.1, 1.2], p_value_target=0.03
         )
 
         assert uplift is None
 
-    def test_sensitivity_check_optimization_failure(
+    def test_placebo_sensitivity_check_optimization_failure(
         self, dummy_dataset: sx.Dataset, mocker: MockerFixture
     ) -> None:
         mocker.patch('synthx.method.synthetic_control', side_effect=NoFeasibleModelError)
 
-        uplift = sensitivity_check(
+        uplift = placebo_sensitivity_check(
             dummy_dataset, effects_placebo=[1.0, 1.1, 1.2], p_value_target=0.03
         )
 
         assert uplift is None
 
-    def test_sensitivity_check_no_significant_difference(
+    def test_placebo_sensitivity_check_no_significant_difference(
         self, dummy_dataset: sx.Dataset, mocker: MockerFixture
     ) -> None:
         mocker.patch(
@@ -158,8 +158,63 @@ class TestSensitivityCheck:
         )
         mocker.patch('synthx.stats.calc_p_value', return_value=0.01)
 
-        uplift = sensitivity_check(
+        uplift = placebo_sensitivity_check(
             dummy_dataset, effects_placebo=[1.0, 1.1, 1.2], p_value_target=0.03
         )
+
+        assert uplift is None
+
+    def test_ttest_sensitivity_check_no_uplift_found(
+        self, dummy_dataset: sx.Dataset, mocker: MockerFixture
+    ) -> None:
+        mocker.patch(
+            'synthx.method.synthetic_control',
+            return_value=mocker.Mock(
+                paired_ttest=mocker.Mock(
+                    return_value=[
+                        {
+                            'intervention_unit': 1,
+                            'p_value_in_training': 0.3,
+                            'p_value_in_intervention': 0.01,
+                            'p_value': 0.15,
+                        }
+                    ]
+                )
+            ),
+        )
+
+        uplift = ttest_sensitivity_check(dummy_dataset, p_value_target=0.03)
+
+        assert uplift is None
+
+    def test_ttest_sensitivity_check_optimization_failure(
+        self, dummy_dataset: sx.Dataset, mocker: MockerFixture
+    ) -> None:
+        mocker.patch('synthx.method.synthetic_control', side_effect=NoFeasibleModelError)
+
+        uplift = ttest_sensitivity_check(dummy_dataset, p_value_target=0.03)
+
+        assert uplift is None
+
+    def test_ttest_sensitivity_check_no_significant_difference(
+        self, dummy_dataset: sx.Dataset, mocker: MockerFixture
+    ) -> None:
+        mocker.patch(
+            'synthx.method.synthetic_control',
+            return_value=mocker.Mock(
+                paired_ttest=mocker.Mock(
+                    return_value=[
+                        {
+                            'intervention_unit': 1,
+                            'p_value_in_training': 0.3,
+                            'p_value_in_intervention': 0.1,
+                            'p_value': 0.2,
+                        }
+                    ]
+                )
+            ),
+        )
+
+        uplift = ttest_sensitivity_check(dummy_dataset, p_value_target=0.03)
 
         assert uplift is None

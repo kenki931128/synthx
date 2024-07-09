@@ -219,21 +219,78 @@ class SyntheticControlResult:
             for intervention_unit in self.dataset.intervention_units
         ]
 
-    def paired_ttest(self) -> list[float]:
+    def paired_ttest(self) -> list[dict[str, float]]:
         """Perform paired t-tests for each intervention unit.
 
         This method compares y_test with the synthetic control (y_control)
         for each intervention unit using a paired t-test.
 
         Returns:
-            list[float]: A list of p-values from the paired t-tests, one for each intervention unit.
+            list[dict[str, float]]: A list of p-values from the paired t-tests, one for each intervention unit.
         """
-        p_values: list[float] = []
+        p_values: list[dict[str, float]] = []
+        training_time = (
+            self.dataset.validation_time
+            if self.dataset.validation_time is not None
+            else self.dataset.intervention_time
+        )
+        pre_df = self.dataset.data.filter(
+            self.dataset.data[self.dataset.time_column] < training_time
+        )
+        pre_result = SyntheticControlResult(
+            dataset=sx.Dataset(
+                pre_df,
+                unit_column=self.dataset.unit_column,
+                time_column=self.dataset.time_column,
+                y_column=self.dataset.y_column,
+                covariate_columns=self.dataset.covariate_columns,
+                intervention_units=self.dataset.intervention_units,
+                intervention_time=0,
+            ),
+            control_unit_weights=self.control_unit_weights,
+            scales=self.scales,
+        )
+        post_df = self.dataset.data.filter(
+            self.dataset.data[self.dataset.time_column] >= self.dataset.intervention_time
+        )
+        post_result = SyntheticControlResult(
+            dataset=sx.Dataset(
+                post_df,
+                unit_column=self.dataset.unit_column,
+                time_column=self.dataset.time_column,
+                y_column=self.dataset.y_column,
+                covariate_columns=self.dataset.covariate_columns,
+                intervention_units=self.dataset.intervention_units,
+                intervention_time=0,
+            ),
+            control_unit_weights=self.control_unit_weights,
+            scales=self.scales,
+        )
+
         for intervention_unit in self.dataset.intervention_units:
+            # p value in the training period
+            _, pre_p_value = stats.ttest_rel(
+                pre_result.y_test(intervention_unit), pre_result.y_control(intervention_unit)
+            )
+
+            # p value after intervention
+            _, post_p_value = stats.ttest_rel(
+                post_result.y_test(intervention_unit), post_result.y_control(intervention_unit)
+            )
+
+            # p value for the total
             _, p_value = stats.ttest_rel(
                 self.y_test(intervention_unit), self.y_control(intervention_unit)
             )
-            p_values.append(p_value)
+
+            p_values.append(
+                {
+                    'intervention_unit': intervention_unit,
+                    'p_value_in_training': pre_p_value,
+                    'p_value_in_intervention': post_p_value,
+                    'p_value': p_value,
+                }
+            )
         return p_values
 
     def plot(self, save: Optional[str] = None) -> None:

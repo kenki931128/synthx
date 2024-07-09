@@ -14,10 +14,8 @@ from synthx.errors import (
     InvalidColumnTypeError,
     InvalidInterventionTimeError,
     InvalidInterventionUnitError,
-    InvalidNormalizationError,
     StrictFilteringError,
 )
-from synthx.stats import norm
 
 
 class Dataset:
@@ -34,7 +32,6 @@ class Dataset:
         intervention_units: Union[Any, list[Any]],
         intervention_time: Union[int, date],
         validation_time: Optional[Union[int, date]] = None,
-        norm: Optional[str] = None,
     ) -> None:
         """Initialize the Dataset.
 
@@ -47,8 +44,6 @@ class Dataset:
             intervention_units (Union[Any, list[Any]]): A list of intervented units
             intervention_time (Union[int, date]): When the intervention or event happens.
             validation_time (Optional[Union[int, date]]): validation time if needed.
-            norm (Optional[str]): If not None, will normalize the y_column.
-                it should be 'z_standardize'
         """
         self.data = data
         self.unit_column = unit_column
@@ -60,9 +55,7 @@ class Dataset:
         )
         self.intervention_time = intervention_time
         self.validation_time = validation_time
-        self.norm = norm
         self.__validate()
-        self.__normalization()
 
     def plot(
         self,
@@ -192,7 +185,6 @@ class Dataset:
             intervention_units=intervention_units,
             intervention_time=self.intervention_time,
             validation_time=self.validation_time,
-            norm=self.norm,
         )
 
     def __validate(self) -> None:
@@ -258,36 +250,3 @@ class Dataset:
                     raise ColumnNotFoundError(covariate_column)
                 if self.data[covariate_column].dtype not in [pl.Int64, pl.Float64]:
                     raise InvalidColumnTypeError(f'{covariate_column} should be int or float.')
-
-    def __normalization(self) -> None:
-        """Perform normalization on the data based on the specified normalization method.
-
-        This method applies the selected normalization technique to the data,
-        grouping by the unit column and applying the corresponding standardization
-        function to each group. The available normalization methods are:
-        - 'z': Z-score standardization
-        - 'cv': Coefficient of Variation (CV) standardization
-        - 'yeo_johnson': Yeo-Johnson transformation followed by Z-score standardization
-
-        If no normalization method is specified (i.e., `self.norm` is None), nothing is performed.
-
-        Raises:
-            InvalidNormalizationError: If an invalid normalization method is specified.
-        """
-        if self.norm is None:
-            return
-
-        if self.norm == 'z':
-            self.data = self.data.group_by(self.unit_column).map_groups(
-                lambda df: norm.z_standardize(df, self.y_column)
-            )
-        elif self.norm == 'cv':
-            self.data = self.data.group_by(self.unit_column).map_groups(
-                lambda df: norm.cv_standardize(df, self.y_column)
-            )
-        elif self.norm == 'yeo_johnson':
-            self.data = self.data.group_by(self.unit_column).map_groups(
-                lambda df: norm.yeo_johnson_standardize(df, self.y_column)
-            )
-        else:
-            raise InvalidNormalizationError('norm should be `z`, `cv` or `yeo_johnson`.')
