@@ -126,7 +126,7 @@ class SyntheticControlResult:
                 y_column=self.dataset.y_column,
                 covariate_columns=self.dataset.covariate_columns,
                 intervention_units=self.dataset.intervention_units,
-                intervention_time=0,
+                intervention_time=pre_df[self.dataset.time_column].min(),  # type: ignore
             ),
             control_unit_weights=self.control_unit_weights,
             scales=self.scales,
@@ -143,7 +143,7 @@ class SyntheticControlResult:
                 y_column=self.dataset.y_column,
                 covariate_columns=self.dataset.covariate_columns,
                 intervention_units=self.dataset.intervention_units,
-                intervention_time=0,
+                intervention_time=post_df[self.dataset.time_column].min(),  # type: ignore
             ),
             control_unit_weights=self.control_unit_weights,
             scales=self.scales,
@@ -182,7 +182,7 @@ class SyntheticControlResult:
                 y_column=self.dataset.y_column,
                 covariate_columns=self.dataset.covariate_columns,
                 intervention_units=self.dataset.intervention_units,
-                intervention_time=0,
+                intervention_time=pre_df[self.dataset.time_column].min(),  # type: ignore
             ),
             control_unit_weights=self.control_unit_weights,
             scales=self.scales,
@@ -200,7 +200,7 @@ class SyntheticControlResult:
                 y_column=self.dataset.y_column,
                 covariate_columns=self.dataset.covariate_columns,
                 intervention_units=self.dataset.intervention_units,
-                intervention_time=0,
+                intervention_time=val_df[self.dataset.time_column].min(),  # type: ignore
             ),
             control_unit_weights=self.control_unit_weights,
             scales=self.scales,
@@ -245,7 +245,7 @@ class SyntheticControlResult:
                 y_column=self.dataset.y_column,
                 covariate_columns=self.dataset.covariate_columns,
                 intervention_units=self.dataset.intervention_units,
-                intervention_time=0,
+                intervention_time=pre_df[self.dataset.time_column].min(),  # type: ignore
             ),
             control_unit_weights=self.control_unit_weights,
             scales=self.scales,
@@ -261,7 +261,7 @@ class SyntheticControlResult:
                 y_column=self.dataset.y_column,
                 covariate_columns=self.dataset.covariate_columns,
                 intervention_units=self.dataset.intervention_units,
-                intervention_time=0,
+                intervention_time=post_df[self.dataset.time_column].min(),  # type: ignore
             ),
             control_unit_weights=self.control_unit_weights,
             scales=self.scales,
