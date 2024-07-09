@@ -233,7 +233,7 @@ def placebo_test(
     return effects_test, effects_placebo, sc_test, scs_placebo
 
 
-def sensitivity_check(
+def placebo_sensitivity_check(
     dataset: sx.Dataset,
     effects_placebo: list[float],
     p_value_target: float = 0.03,
@@ -242,7 +242,7 @@ def sensitivity_check(
     write_progress: bool = False,
     equal_var: bool = True,
 ) -> Optional[float]:
-    """Perform a sensitivity check on the synthetic control results.
+    """Perform a sensitivity check on the synthetic control results with placebo.
 
     Args:
         dataset (sx.Dataset): The dataset for the synthetic control analysis.
@@ -298,6 +298,78 @@ def sensitivity_check(
             continue
 
         p_value = sx.stats.calc_p_value(sc.estimate_effects(), effects_placebo, equal_var=equal_var)
+        if p_value <= p_value_target:
+            r = uplift
+        else:
+            if write_progress:
+                tqdm.write(f'uplift: {uplift:.4f}, p value: {p_value}.', file=sys.stderr)
+            l = uplift
+
+    # even 1000% uplift cannot be captured / singnificant difference without actual uplift.
+    if r == 10 or l == 1:
+        return None
+    return r
+
+
+def ttest_sensitivity_check(
+    dataset: sx.Dataset,
+    p_value_target: float = 0.03,
+    l: float = 1.0,
+    r: float = 10.0,
+    write_progress: bool = False,
+) -> Optional[float]:
+    """Perform a sensitivity check on the synthetic control results with paired ttest.
+
+    Args:
+        dataset (sx.Dataset): The dataset for the synthetic control analysis.
+        p_value_target (float, optional): The target p-value threshold for statistical significance.
+        l (float), r (float): the range of uplift. If you have assumption, narrow down to be faster.
+        write_progress (bool): Whether to write progress information to stderr.
+
+    Returns:
+        float or None: The uplift which becomes statistically significant.
+    """
+    df = dataset.data
+
+    if l < 1.0:
+        raise ValueError('l should be larger than or equal to 1.')
+    if r <= l:
+        raise ValueError('r should be larger than l.')
+
+    progress_bar = tqdm()
+    while r - l > 0.001:
+        uplift = (l + r) / 2
+        progress_bar.update(1)
+        progress_bar.set_postfix(uplift=f'{uplift:.4f}')
+
+        df_sensitivity = df.with_columns(
+            pl.when(
+                pl.col(dataset.unit_column).is_in(dataset.intervention_units)
+                & (pl.col(dataset.time_column) >= dataset.intervention_time)
+            )
+            .then(pl.col(dataset.y_column) * uplift)
+            .otherwise(pl.col(dataset.y_column))
+            .alias(dataset.y_column)
+        )
+
+        dataset_sensitivity = sx.Dataset(
+            df_sensitivity,
+            unit_column=dataset.unit_column,
+            time_column=dataset.time_column,
+            y_column=dataset.y_column,
+            covariate_columns=dataset.covariate_columns,
+            intervention_units=dataset.intervention_units,
+            intervention_time=dataset.intervention_time,
+            validation_time=dataset.validation_time,
+        )
+
+        try:
+            sc = synthetic_control(dataset_sensitivity)
+        except NoFeasibleModelError:
+            r = uplift  # highly likely uplift was too big. TODO: think better algorithm.
+            continue
+
+        p_value = np.mean([p['p_value_in_intervention'] for p in sc.paired_ttest()])
         if p_value <= p_value_target:
             r = uplift
         else:
