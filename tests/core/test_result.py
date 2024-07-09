@@ -124,6 +124,20 @@ class TestSyntheticControlResult:
         assert val_result is not None
         assert val_result[0] == expected_difference
 
+    def test_paired_ttest(
+        self, dummy_result: sx.SyntheticControlResult, mocker: MockerFixture
+    ) -> None:
+        # Mock the scipy.stats.ttest_rel function
+        mocker.patch('scipy.stats.ttest_rel', return_value=(0, 0.5))
+        # Call the paired_ttest method
+        p_values = dummy_result.paired_ttest()
+        # Assert that the method returns the expected result
+        assert len(p_values) == 1  # Since there's only one intervention unit in dummy_result
+        assert p_values[0]['intervention_unit'] == 1
+        assert p_values[0]['p_value_in_training'] == 0.5
+        assert p_values[0]['p_value_in_intervention'] == 0.5
+        assert p_values[0]['p_value'] == 0.5
+
     def test_plot(self, dummy_result: sx.SyntheticControlResult, mocker: MockerFixture) -> None:
         mocker.patch('matplotlib.pyplot.show')
         dummy_result.plot()
