@@ -46,20 +46,21 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
     condition_control_units = ~df[dataset.unit_column].is_in(dataset.intervention_units)
 
     # weights for variables and scale each variables
-    # weights of y_column : weights of others = 8 : 2.
+    # weights of y_column : weights of others = 9 : 1.
     # TODO: Update if there are better weights balance.
     variables = [dataset.y_column]
     variable_weights: dict[str, float] = {}
     if dataset.covariate_columns is not None:
         variables += dataset.covariate_columns
         variable_weights = {
-            covariate: 2 / len(dataset.covariate_columns) for covariate in dataset.covariate_columns
+            covariate: 1 / len(dataset.covariate_columns) for covariate in dataset.covariate_columns
         }
-    variable_weights[dataset.y_column] = 8.0
+    variable_weights[dataset.y_column] = 9.0
+    df_training = df.filter(condition_training_time)
     for variable in variables:
-        df = df.with_columns(
-            ((pl.col(variable) - pl.col(variable).min()) / pl.col(variable).std()).alias(variable)
-        )
+        min_var = df_training[variable].min()
+        max_var = df_training[variable].max()
+        df = df.with_columns(((pl.col(variable) - min_var) / (max_var - min_var)).alias(variable))  # type: ignore
 
     # dataframe for control
     df_control = df.filter(condition_training_time & condition_control_units)
@@ -84,14 +85,16 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
         # optimize unit weights
         def objective(unit_weights: np.ndarray) -> float:
             diff = 0
-            for variable in variables:
+            for i, variable in enumerate(variables):
                 arr_control_pivoted = arrs_control_pivoted[variable]
                 arr_test = arrs_test[variable]
                 variable_weight = variable_weights[variable]
-                diff += np.sum(
-                    variable_weight
-                    * (arr_test - np.sum(arr_control_pivoted * unit_weights, axis=1)) ** 2
-                )
+
+                y1 = arr_test
+                y2 = np.sum(arr_control_pivoted * unit_weights, axis=1)
+                # scale should be applied only to y_column
+                scale = np.sum(y1 * y2) / np.sum(y2 * y2) if i == 0 else 1
+                diff += np.sum(variable_weight * (y1 - scale * y2) ** 2)
             return diff
 
         control_units = df_control[dataset.unit_column].unique().to_list()
@@ -303,6 +306,7 @@ def placebo_sensitivity_check(
         else:
             if write_progress:
                 tqdm.write(f'uplift: {uplift:.4f}, p value: {p_value}.', file=sys.stderr)
+                sc.plot()
             l = uplift
 
     # even 1000% uplift cannot be captured / singnificant difference without actual uplift.
@@ -375,6 +379,7 @@ def ttest_sensitivity_check(
         else:
             if write_progress:
                 tqdm.write(f'uplift: {uplift:.4f}, p value: {p_value}.', file=sys.stderr)
+                sc.plot()
             l = uplift
 
     # even 1000% uplift cannot be captured / singnificant difference without actual uplift.
