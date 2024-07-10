@@ -330,3 +330,45 @@ class SyntheticControlResult:
             plt.savefig(save)
         else:
             plt.show()
+
+    def to_excel(self, path: str) -> None:
+        """Exports the result dataset to an Excel file.
+
+        Args:
+            path (str): The file path where the Excel file will be saved.
+
+        Raises:
+            NotImplementedError: If there is more than one intervention unit.
+
+        Note:
+            - This function currently supports only one intervention unit.
+        """
+        if len(self.dataset.intervention_units) > 1:
+            # when implement, please update self.control_unit_weights[**0**] as well.
+            raise NotImplementedError('Cannot save > 1 intervention units in excel.')
+
+        df = self.df_test.pivot(
+            values=self.dataset.y_column,
+            index=self.dataset.time_column,
+            columns=self.dataset.unit_column,
+        )
+        df_control_pivoted = self.df_control.pivot(
+            index=self.dataset.time_column,
+            columns=self.dataset.unit_column,
+            values=self.dataset.y_column,
+        ).drop(self.dataset.time_column)
+
+        for column, weight in zip(df_control_pivoted.columns, self.control_unit_weights[0]):
+            df_control_pivoted = df_control_pivoted.with_columns(
+                pl.col(column)
+                .map_elements(lambda x: f'={weight}*{x}', return_dtype=pl.String)
+                .alias(f'weighted_{column}')
+            )
+        test_unit = str(self.dataset.intervention_units[0])
+        df = df_control_pivoted.with_columns(
+            df.select(pl.col(test_unit)).rename(
+                {test_unit: f'test_{test_unit} - scale: {self.scales[0]}'}
+            )
+        )
+
+        df.to_pandas().to_excel(path, index=False)
