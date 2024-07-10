@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "synthx"
-version = "1.4.2"
+version = "1.4.3"
 description = "A Python Library for Advanced Synthetic Control Analysis"
 authors = ["kenki931128 <kenki.nkmr@gmail.com>"]
 license = "MIT License"
@@ -15,6 +15,8 @@ scipy = "^1.12.0"
 matplotlib = "^3.8.3"
 tqdm = "^4.66.2"
 joblib = "^1.4.0"
+openpyxl = "^3.1.5"
+pyarrow = "^16.1.0"
 
 [tool.poetry.group.dev.dependencies]
 isort = {extras = ["pyproject"], version = "^5.13.2"}
