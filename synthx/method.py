@@ -64,6 +64,7 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
 
     # dataframe for control
     df_control = df.filter(condition_training_time & condition_control_units)
+    df_control_original = dataset.data.filter(condition_training_time & condition_control_units)
 
     # pre-create variables for objective function
     arrs_control_pivoted: dict[str, np.ndarray] = {}
@@ -78,6 +79,7 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
     for intervention_unit in dataset.intervention_units:
         condition_test_unit = df[dataset.unit_column] == intervention_unit
         df_test = df.filter(condition_training_time & condition_test_unit)
+        df_test_original = dataset.data.filter(condition_training_time & condition_test_unit)
         arrs_test: dict[str, np.ndarray] = {}
         for variable in variables:
             arrs_test[variable] = df_test[variable].to_numpy()
@@ -120,8 +122,8 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
         control_unit_weights.append(solution.x)
 
         # scale
-        y_test = df_test[dataset.y_column].to_numpy()
-        df_control_pivoted = df_control.pivot(
+        y_test = df_test_original[dataset.y_column].to_numpy()
+        df_control_pivoted = df_control_original.pivot(
             index=dataset.time_column, columns=dataset.unit_column, values=dataset.y_column
         ).drop(dataset.time_column)
         arr_control_pivoted = df_control_pivoted.to_numpy()
