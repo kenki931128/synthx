@@ -13,7 +13,9 @@ import synthx as sx
 from synthx.errors import NoFeasibleModelError
 
 
-def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
+def synthetic_control(
+    dataset: sx.Dataset, sparsity_lambda: float = 0.00
+) -> sx.SyntheticControlResult:
     """Perform synthetic control analysis on the given dataset.
 
     This function applies the synthetic control method to estimate the effect of an intervention
@@ -22,6 +24,9 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
 
     Args:
         dataset (sx.Dataset): The dataset containing the time series for the test and control units.
+        sparsity_lambda (float): The strength of the sparsity-promoting term.
+            Higher values encourage sparser solutions (fewer control units used).
+            Recommended setting is 0.01.
 
     Returns:
         sx.SyntheticControlResult: The result of synthetic control with optimized weights.
@@ -97,7 +102,10 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
                 # scale should be applied only to y_column
                 scale = np.sum(y1 * y2) / np.sum(y2 * y2) if i == 0 else 1
                 diff += np.sum(variable_weight * (y1 - scale * y2) ** 2)
-            return diff
+
+            # sparsity
+            sparsity_penalty = -np.sum(np.log(unit_weights + 1e-8))
+            return diff + sparsity_lambda * sparsity_penalty
 
         control_units = df_control[dataset.unit_column].unique().to_list()
         initial_unit_weights = np.ones(len(control_units)) / len(control_units)
@@ -119,7 +127,14 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
             raise NoFeasibleModelError(
                 f'synthetic control optimization failed: test unit {intervention_unit}'
             )
-        control_unit_weights.append(solution.x)
+        weights = solution.x
+        if sparsity_lambda > 0:
+            epsilon = 1 / len(control_units)
+            sparse_weights = np.where(weights < epsilon, 0, weights)
+            # re-normalize the weight
+            weights = sparse_weights / np.sum(sparse_weights)
+
+        control_unit_weights.append(weights)
 
         # scale
         y_test = df_test_original[dataset.y_column].to_numpy()
@@ -127,7 +142,7 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
             index=dataset.time_column, columns=dataset.unit_column, values=dataset.y_column
         ).drop(dataset.time_column)
         arr_control_pivoted = df_control_pivoted.to_numpy()
-        y_control = np.sum(arr_control_pivoted * solution.x, axis=1)
+        y_control = np.sum(arr_control_pivoted * weights, axis=1)
         scales.append(np.sum(y_test * y_control) / np.sum(y_control * y_control))
 
     return sx.SyntheticControlResult(
@@ -138,7 +153,9 @@ def synthetic_control(dataset: sx.Dataset) -> sx.SyntheticControlResult:
 
 
 def placebo_test(
-    dataset: sx.Dataset, n_jobs: int = -1
+    dataset: sx.Dataset,
+    n_jobs: int = -1,
+    sparsity_lambda: float = 0.00,
 ) -> tuple[list[float], list[float], sx.SyntheticControlResult, list[sx.SyntheticControlResult]]:
     """Perform a placebo test to assess the significance of the intervention effect.
 
@@ -148,6 +165,9 @@ def placebo_test(
     Args:
         dataset (sx.Dataset): The dataset containing the time series data for the test and control areas.
         n_jobs (int): the number of cores used. -1 means using as many as possible.
+        sparsity_lambda (float): The strength of the sparsity-promoting term.
+            Higher values encourage sparser solutions (fewer control units used).
+            Recommended setting is 0.01.
 
     Returns:
         tuple: A tuple containing the following elements:
@@ -159,7 +179,7 @@ def placebo_test(
     """
     # placebo effect in test area
     try:
-        sc_test = synthetic_control(dataset)
+        sc_test = synthetic_control(dataset, sparsity_lambda)
     except NoFeasibleModelError:
         raise NoFeasibleModelError('synthetic control optimization failed for test units.')
     effects_test = sc_test.estimate_effects()
@@ -213,7 +233,7 @@ def placebo_test(
             validation_time=dataset.validation_time,
         )
         try:
-            sc_placebo = synthetic_control(dataset_placebo)
+            sc_placebo = synthetic_control(dataset_placebo, sparsity_lambda)
             effect_placebo = sc_placebo.estimate_effects()
             return effect_placebo, sc_placebo
         except NoFeasibleModelError:
@@ -244,6 +264,7 @@ def placebo_sensitivity_check(
     p_value_target: float = 0.03,
     l: float = 1.0,
     r: float = 10.0,
+    sparsity_lambda: float = 0.00,
     write_progress: bool = False,
     equal_var: bool = True,
 ) -> Optional[float]:
@@ -254,6 +275,9 @@ def placebo_sensitivity_check(
         effects_placebo (list[float]): The list of placebo effects estimated.
         p_value_target (float, optional): The target p-value threshold for statistical significance.
         l (float), r (float): the range of uplift. If you have assumption, narrow down to be faster.
+        sparsity_lambda (float): The strength of the sparsity-promoting term.
+            Higher values encourage sparser solutions (fewer control units used).
+            Recommended setting is 0.01.
         write_progress (bool): Whether to write progress information to stderr.
         equal_var (bool):
             If True, perform a standard independent 2 sample test that assumes equal variances.
@@ -297,7 +321,7 @@ def placebo_sensitivity_check(
         )
 
         try:
-            sc = synthetic_control(dataset_sensitivity)
+            sc = synthetic_control(dataset_sensitivity, sparsity_lambda)
         except NoFeasibleModelError:
             r = uplift  # highly likely uplift was too big. TODO: think better algorithm.
             continue
@@ -322,6 +346,7 @@ def ttest_sensitivity_check(
     p_value_target: float = 0.03,
     l: float = 1.0,
     r: float = 10.0,
+    sparsity_lambda: float = 0.00,
     write_progress: bool = False,
 ) -> Optional[float]:
     """Perform a sensitivity check on the synthetic control results with paired ttest.
@@ -330,6 +355,9 @@ def ttest_sensitivity_check(
         dataset (sx.Dataset): The dataset for the synthetic control analysis.
         p_value_target (float, optional): The target p-value threshold for statistical significance.
         l (float), r (float): the range of uplift. If you have assumption, narrow down to be faster.
+        sparsity_lambda (float): The strength of the sparsity-promoting term.
+            Higher values encourage sparser solutions (fewer control units used).
+            Recommended setting is 0.01.
         write_progress (bool): Whether to write progress information to stderr.
 
     Returns:
@@ -370,7 +398,7 @@ def ttest_sensitivity_check(
         )
 
         try:
-            sc = synthetic_control(dataset_sensitivity)
+            sc = synthetic_control(dataset_sensitivity, sparsity_lambda)
         except NoFeasibleModelError:
             r = uplift  # highly likely uplift was too big. TODO: think better algorithm.
             continue
