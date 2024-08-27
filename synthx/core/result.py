@@ -296,6 +296,8 @@ class SyntheticControlResult:
     def plot(self, save: Optional[str] = None) -> None:
         """Plot the target variable over time for both test and control units.
 
+        This chart includes a bar chart showing their difference in the same plot.
+
         Args:
             save (Optional[str]): file path to save the plot. If None, the plot will be displayed.
         """
@@ -305,8 +307,25 @@ class SyntheticControlResult:
         axs = [axs] if num_plots == 1 else axs
 
         for i, intervention_unit in enumerate(self.dataset.intervention_units):
-            axs[i].plot(self.x_time, self.y_test(intervention_unit), label='Test')
-            axs[i].plot(self.x_time, self.y_control(intervention_unit), label='Control')
+            # Line plots
+            axs[i].plot(self.x_time, self.y_test(intervention_unit), label='Test', color='blue')
+            axs[i].plot(
+                self.x_time, self.y_control(intervention_unit), label='Control', color='green'
+            )
+
+            # Create a twin axis for the bar plot
+            ax_diff = axs[i].twinx()
+            # Difference bar plot
+            difference = self.y_test(intervention_unit) - self.y_control(intervention_unit)
+            ax_diff.bar(self.x_time, difference, alpha=0.3, label='Difference', color='gray')
+            ax_diff.axhline(y=0, color='gray', linewidth=0.1)
+            # Adjust the y-axis limits for the bar chart
+            max_diff = max(abs(difference))
+            ax_diff.set_ylim(-(max_diff - 1e-6) * 2, (max_diff + 1e-6) * 20)
+            # Hide y-axis values for the bar chart
+            ax_diff.yaxis.set_visible(False)
+
+            # Add vertical lines for intervention and validation times
             if self.dataset.validation_time is not None:
                 axs[i].axvline(
                     self.dataset.validation_time,
