@@ -32,6 +32,7 @@ class Dataset:
         intervention_units: Union[Any, list[Any]],
         intervention_time: Union[int, date],
         validation_time: Optional[Union[int, date]] = None,
+        aggregate_intervention: bool = False,
     ) -> None:
         """Initialize the Dataset.
 
@@ -44,6 +45,7 @@ class Dataset:
             intervention_units (Union[Any, list[Any]]): A list of intervented units
             intervention_time (Union[int, date]): When the intervention or event happens.
             validation_time (Optional[Union[int, date]]): validation time if needed.
+            aggregate_intervention (bool): If True, aggregate all intervention units into a single unit.
         """
         self.data = data
         self.unit_column = unit_column
@@ -55,7 +57,12 @@ class Dataset:
         )
         self.intervention_time = intervention_time
         self.validation_time = validation_time
+
+        if aggregate_intervention:
+            self.__aggregate_intervention_units()
+
         self.__validate()
+        self.data = self.data.sort([self.unit_column, self.time_column])
 
     def plot(
         self,
@@ -236,11 +243,11 @@ class Dataset:
             raise InvalidColumnTypeError(f'{self.y_column} should be float.')
 
         units = self.data[self.unit_column].unique()
-        timestamps = self.data[self.time_column].unique()
+        timestamps = self.data[self.time_column].unique().sort()
         for unit in units:
             unit_timestamps = self.data.filter(self.data[self.unit_column] == unit)[
                 self.time_column
-            ]
+            ].sort()
             if not timestamps.equals(unit_timestamps):
                 raise InconsistentTimestampsError(f'Unit {unit} has inconsistent timestamps.')
 
@@ -250,3 +257,30 @@ class Dataset:
                     raise ColumnNotFoundError(covariate_column)
                 if self.data[covariate_column].dtype not in [pl.Int64, pl.Float64]:
                     raise InvalidColumnTypeError(f'{covariate_column} should be int or float.')
+
+    def __aggregate_intervention_units(self) -> None:
+        """Aggregate all intervention units into a single unit."""
+        # TODO: consider the case if the data already has this value below
+        intervention_unit = 'aggregated_intervention_unit'
+
+        # Create a new column to identify intervention units
+        self.data = self.data.with_columns(
+            pl.when(pl.col(self.unit_column).is_in(self.intervention_units))
+            .then(pl.lit(intervention_unit))
+            .otherwise(pl.col(self.unit_column))
+            .alias(self.unit_column)
+        )
+
+        # Aggregate the data
+        covariate_cols = (
+            [pl.mean(col).alias(col) for col in self.covariate_columns]
+            if self.covariate_columns
+            else []
+        )
+        aggregated_data = self.data.groupby([self.unit_column, self.time_column]).agg(
+            [pl.sum(self.y_column).alias(self.y_column)] + covariate_cols
+        )
+
+        # Update the data and intervention units
+        self.data = aggregated_data.sort([self.unit_column, self.time_column])
+        self.intervention_units = [intervention_unit]
