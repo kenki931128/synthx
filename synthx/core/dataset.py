@@ -260,6 +260,7 @@ class Dataset:
 
     def __aggregate_intervention_units(self) -> None:
         """Aggregate all intervention units into a single unit."""
+        # TODO: consider the case if the data already has this value below
         intervention_unit = 'aggregated_intervention_unit'
 
         # Create a new column to identify intervention units
